@@ -1,18 +1,116 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOutletContext, useParams, useNavigate } from 'react-router-dom';
 import type { Child, Class, AppState } from '../types';
-import { TrashIcon, PlusIcon, ArrowLeftIcon } from '../components/Icons';
+import { TrashIcon, PlusIcon, ArrowLeftIcon, CameraIcon, XIcon } from '../components/Icons';
 
 interface OutletContextType {
   appState: AppState;
 }
 
+const CameraCaptureModal: React.FC<{
+    onCapture: (imageDataUrl: string) => void;
+    onClose: () => void;
+}> = ({ onCapture, onClose }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const startStream = (stream: MediaStream) => {
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                streamRef.current = stream;
+            }
+        };
+
+        const openCamera = async () => {
+            // Try user-facing camera first
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(startStream)
+                .catch(err => {
+                    console.warn("Could not get user-facing camera, trying any camera.", err);
+                    // Fallback to any available camera
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(startStream)
+                        .catch(err2 => {
+                            console.error("Error accessing camera: ", err2);
+                            setError("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
+                        });
+                });
+        };
+
+        openCamera();
+
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);
+
+    const handleCapture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            if (context) {
+                // Flip the image horizontally for user-facing camera to un-mirror it
+                if (streamRef.current?.getVideoTracks()[0].getSettings().facingMode === 'user') {
+                    context.translate(video.videoWidth, 0);
+                    context.scale(-1, 1);
+                }
+                context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+                const imageDataUrl = canvas.toDataURL('image/jpeg');
+                onCapture(imageDataUrl);
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose} role="dialog" aria-modal="true">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-4" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold">التقاط صورة</h3>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full">
+                        <XIcon className="w-5 h-5"/>
+                    </button>
+                </div>
+                {error ? (
+                    <div className="text-center p-8 bg-red-50 text-red-700 rounded-lg">
+                        <p>{error}</p>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <video ref={videoRef} autoPlay playsInline className="w-full h-auto rounded-lg bg-black transform scale-x-[-1]"></video>
+                        <canvas ref={canvasRef} className="hidden"></canvas>
+                    </div>
+                )}
+                <div className="mt-4 flex justify-center">
+                    <button onClick={handleCapture} disabled={!!error} className="btn btn-primary">
+                        <CameraIcon className="w-5 h-5" />
+                        <span>التقاط</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const AddEditChild: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { children, setChildren, classes } = appState;
+  const { children, setChildren, classes, currentUser } = appState;
   const { childId, classId } = useParams();
   const navigate = useNavigate();
   const isEditMode = childId !== undefined;
+
+  const isSiteAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.roles.includes('general_secretary') && currentUser.nationalId === '29908241301363';
+  }, [currentUser]);
 
   const [childData, setChildData] = useState<Omit<Child, 'id' | 'age'> & { age: string | number }>({
     class_id: classId || '',
@@ -34,6 +132,7 @@ const AddEditChild: React.FC = () => {
     image: '',
   });
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const handleBack = () => {
     if (window.history.state?.idx > 0) {
@@ -72,17 +171,10 @@ const AddEditChild: React.FC = () => {
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setChildData(prev => ({ ...prev, image: base64String }));
-        setPhotoPreview(base64String);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleCapturePhoto = (imageDataUrl: string) => {
+    setChildData(prev => ({ ...prev, image: imageDataUrl }));
+    setPhotoPreview(imageDataUrl);
+    setIsCameraOpen(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -122,11 +214,11 @@ const AddEditChild: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <h1 className="text-2xl font-bold text-slate-900">
                 {isEditMode ? 'تعديل بيانات الطفل' : 'إضافة طفل جديد'}
             </h1>
-            <button type="button" onClick={handleBack} className="btn btn-secondary">
+            <button type="button" onClick={handleBack} className="btn btn-secondary self-start sm:self-auto">
                 <ArrowLeftIcon className="w-4 h-4" />
                 <span>رجوع</span>
             </button>
@@ -158,10 +250,10 @@ const AddEditChild: React.FC = () => {
                         alt="صورة الطفل" 
                         className="w-48 h-48 mx-auto rounded-full object-cover border-8 border-slate-100 shadow-sm"
                      />
-                     <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-6 py-2 rounded-lg text-sm inline-block transition-colors">
-                         <span>{photoPreview ? 'تغيير الصورة' : 'رفع صورة'}</span>
-                         <input type="file" name="image" onChange={handlePhotoChange} accept="image/*" className="hidden"/>
-                     </label>
+                    <button type="button" onClick={() => setIsCameraOpen(true)} className="btn btn-primary">
+                        <CameraIcon className="w-5 h-5" />
+                        <span>{photoPreview ? 'التقاط صورة جديدة' : 'التقاط صورة'}</span>
+                    </button>
                  </div>
 
                  {isEditMode && childId && (
@@ -244,7 +336,7 @@ const AddEditChild: React.FC = () => {
         </div>
         
         <div className="flex justify-center items-center gap-4 pt-6 mt-4 border-t border-slate-200">
-          {isEditMode && (
+          {isEditMode && isSiteAdmin && (
             <button type="button" onClick={handleDelete} className="btn btn-danger">
               حذف الطفل
             </button>
@@ -254,6 +346,7 @@ const AddEditChild: React.FC = () => {
           </button>
         </div>
       </form>
+      {isCameraOpen && <CameraCaptureModal onCapture={handleCapturePhoto} onClose={() => setIsCameraOpen(false)} />}
     </div>
   );
 };

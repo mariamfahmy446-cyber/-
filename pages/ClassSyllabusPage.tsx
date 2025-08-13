@@ -117,16 +117,16 @@ const ClassSyllabusPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <div /> {/* Spacer */}
-        <div className="text-center">
-            <h1 className="text-4xl font-extrabold text-slate-800">{level.name} - {activeClass.name}</h1>
-            <p className="text-slate-500 mt-1">منهج الفصل والمواد التعليمية</p>
-        </div>
-        <button onClick={handleBack} className="btn btn-secondary">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <button onClick={handleBack} className="btn btn-secondary self-start sm:self-center">
             <ArrowLeftIcon className="w-4 h-4" />
             <span>رجوع</span>
         </button>
+        <div className="text-center">
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800">{level.name} - {activeClass.name}</h1>
+            <p className="text-slate-500 mt-1">منهج الفصل والمواد التعليمية</p>
+        </div>
+        <div className="w-24 hidden sm:block"></div> {/* Spacer */}
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-md">

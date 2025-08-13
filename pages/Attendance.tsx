@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { AppState } from '../types';
@@ -71,9 +72,9 @@ const Attendance: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-       <div className="flex justify-between items-center">
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-3xl font-bold text-slate-900">تسجيل الحضور</h1>
-            <button onClick={handleBack} className="btn btn-secondary">
+            <button onClick={handleBack} className="btn btn-secondary self-start sm:self-auto">
                 <ArrowLeftIcon className="w-4 h-4" />
                 <span>رجوع</span>
             </button>

@@ -43,7 +43,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, settings, currentUser })
             <div className="w-full max-w-md">
                 <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-2xl p-8 space-y-6 animate-fade-in">
                     <div className="text-center mb-6">
-                        <img src={settings.churchLogo || kidsLogoBase64} alt="Logo" className="w-32 h-auto mx-auto object-contain mb-4"/>
+                        <img src={settings.churchLogo || kidsLogoBase64} alt="Logo" className="w-32 h-auto mx-auto object-contain mb-4 drop-shadow-md"/>
                         <h1 className="text-2xl font-bold text-slate-800">تسجيل الدخول</h1>
                         <p className="text-slate-500 mt-1">مرحباً بعودتك! الرجاء إدخال بياناتك.</p>
                     </div>

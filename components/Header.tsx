@@ -125,8 +125,10 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
          </Link>
          
          <div className="flex items-center gap-4 ml-2">
-            <img src={settings.churchLogo || kidsLogoBase64} alt={t('logo')} className="h-12 w-auto object-contain" />
-            <h1 className="text-lg font-bold hidden sm:block">نظام تسجيل بيانات الأطفال</h1>
+            <div className="bg-white/90 p-1 rounded-md shadow-md">
+              <img src={settings.churchLogo || kidsLogoBase64} alt={t('logo')} className="h-10 w-auto object-contain" />
+            </div>
+            <h1 className="text-lg font-bold hidden sm:block">خدمتى</h1>
          </div>
       </div>
       <nav className="flex items-center gap-4">

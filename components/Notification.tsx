@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { CheckIcon, XIcon, HelpCircleIcon } from './Icons';
 import type { Settings } from '../types';
+import { playSound, playVibration } from '../utils/audio';
 
 interface NotificationProps {
   message: string;
@@ -22,30 +23,10 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose, app
 
   useEffect(() => {
     if (appSettings.enableSounds) {
-        // Simple sound effect
-        try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-            
-            oscillator.type = type === 'success' ? 'sine' : 'triangle';
-            oscillator.frequency.setValueAtTime(type === 'success' ? 880 : 440, audioContext.currentTime);
-            
-            oscillator.start(audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.1);
-            oscillator.stop(audioContext.currentTime + 0.1);
-        } catch (e) {
-            console.error("Audio playback failed", e);
-        }
+        playSound(type);
     }
-    if (appSettings.enableVibrations && 'vibrate' in navigator) {
-      navigator.vibrate(type === 'error' ? [100, 50, 100] : 100);
+    if (appSettings.enableVibrations) {
+      playVibration(type === 'error' ? 'error' : 'success');
     }
 
     const timer = setTimeout(() => {

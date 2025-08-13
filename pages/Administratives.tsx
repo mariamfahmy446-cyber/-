@@ -5,7 +5,7 @@ import { useOutletContext, useNavigate, Link, Navigate } from 'react-router-dom'
 import type { Settings, EducationLevel, Class as ClassType, Servant, User, AppState, NotificationItem, Child, UserRole } from '../types';
 import { 
     EditIcon, TrashIcon, PlusIcon, ChevronDownIcon, 
-    UserIcon, BellIcon, ImageIcon, UsersIcon, XIcon, BookOpenIcon, UserPlusIcon, ArrowLeftIcon
+    UserIcon, BellIcon, ImageIcon, UsersIcon, XIcon, BookOpenIcon, UserPlusIcon, ArrowLeftIcon, PhoneIcon
 } from '../components/Icons';
 import Notification from '../components/Notification';
 
@@ -22,6 +22,194 @@ type NotificationType = {
 }
 
 const PRIMARY_GRADES = ['الصف الاول', 'الصف الثانى', 'الصف الثالث', 'الصف الرابع', 'الصف الخامس', 'الصف السادس'];
+
+const MultiSelect: React.FC<{
+    options: { value: string, label: string }[];
+    selected: string[];
+    onChange: (selected: string[]) => void;
+    label: string;
+}> = ({ options, selected, onChange, label }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const handleSelect = (value: string) => {
+        const newSelected = selected.includes(value)
+            ? selected.filter(s => s !== value)
+            : [...selected, value];
+        onChange(newSelected);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [wrapperRef]);
+    
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="form-select text-right w-full flex justify-between items-center"
+            >
+                <span className="truncate">{selected.length > 0 ? selected.join(', ') : 'اختر الخدام'}</span>
+                <ChevronDownIcon className={`w-5 h-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                    {options.map(option => (
+                        <div
+                            key={option.value}
+                            onClick={() => handleSelect(option.value)}
+                            className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-slate-100"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={selected.includes(option.value)}
+                                readOnly
+                                className="form-checkbox text-violet-600"
+                            />
+                            <span>{option.label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ClassModal: React.FC<{
+    onClose: () => void;
+    classToEdit: ClassType | null;
+    appState: AppState;
+    showNotification: (msg: string, type?: NotificationType['type']) => void;
+}> = ({ onClose, classToEdit, appState, showNotification }) => {
+    const { levels, servants, classes, setClasses } = appState;
+    const isEditMode = !!classToEdit;
+
+    const getInitialClassState = (): Omit<ClassType, 'id'> => ({
+        level_id: '',
+        grade: '',
+        name: '',
+        supervisorName: '',
+        servantNames: [],
+    });
+
+    const [classData, setClassData] = useState<Omit<ClassType, 'id'>>(() => {
+        if (classToEdit) {
+            return {
+                level_id: classToEdit.level_id,
+                grade: classToEdit.grade,
+                name: classToEdit.name,
+                supervisorName: classToEdit.supervisorName || '',
+                servantNames: classToEdit.servantNames || [],
+            };
+        }
+        return getInitialClassState();
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setClassData(prev => ({...prev, [name]: value}));
+    };
+    
+    const handleServantsChange = (selectedNames: string[]) => {
+        setClassData(prev => ({ ...prev, servantNames: selectedNames }));
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!classData.level_id || !classData.grade.trim() || !classData.name.trim()) {
+            showNotification('يرجى ملء جميع الحقول المطلوبة.', 'error');
+            return;
+        }
+
+        if (isEditMode && classToEdit) {
+            setClasses(prev => prev.map(c => c.id === classToEdit.id ? { ...classToEdit, ...classData } : c));
+            showNotification('تم تعديل الفصل بنجاح.', 'success');
+        } else {
+            const newClass: ClassType = {
+                id: `class-${Date.now()}`,
+                ...classData,
+            };
+            setClasses(prev => [...prev, newClass]);
+            showNotification('تم إضافة الفصل بنجاح.', 'success');
+        }
+        onClose();
+    };
+
+    const isPrimary = useMemo(() => {
+        const selectedLevel = levels.find(l => l.id === classData.level_id);
+        return selectedLevel?.id === 'level-primary';
+    }, [classData.level_id, levels]);
+    
+    const servantOptions = useMemo(() => {
+        return servants.map(s => ({ value: s.name, label: s.name }));
+    }, [servants]);
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-scale-in" onClick={e => e.stopPropagation()}>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-slate-800">{isEditMode ? 'تعديل فصل' : 'إضافة فصل جديد'}</h2>
+                        <button type="button" onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"><XIcon className="w-5 h-5"/></button>
+                    </div>
+
+                    <div>
+                        <label htmlFor="level_id" className="block text-sm font-medium text-slate-700 mb-1">المرحلة</label>
+                        <select name="level_id" id="level_id" value={classData.level_id} onChange={handleChange} className="form-select" required>
+                            <option value="" disabled>-- اختر مرحلة --</option>
+                            {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="grade" className="block text-sm font-medium text-slate-700 mb-1">الصف</label>
+                        {isPrimary ? (
+                             <select name="grade" id="grade" value={classData.grade} onChange={handleChange} className="form-select" required>
+                                <option value="" disabled>-- اختر الصف --</option>
+                                {PRIMARY_GRADES.map(grade => <option key={grade} value={grade}>{grade}</option>)}
+                            </select>
+                        ) : (
+                            <input type="text" id="grade" name="grade" value={classData.grade} onChange={handleChange} className="form-input" required placeholder="مثال: اولى اعدادى"/>
+                        )}
+                    </div>
+                    
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">اسم الفصل</label>
+                        <input type="text" id="name" name="name" value={classData.name} onChange={handleChange} className="form-input" required placeholder="مثال: بنين, بنات, فصل الرجاء"/>
+                    </div>
+                    
+                     <div>
+                        <label htmlFor="supervisorName" className="block text-sm font-medium text-slate-700 mb-1">مشرف الفصل</label>
+                        <select name="supervisorName" id="supervisorName" value={classData.supervisorName} onChange={handleChange} className="form-select">
+                            <option value="">-- اختر مشرف --</option>
+                            {servants.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                    </div>
+                    
+                    <MultiSelect
+                        label="خدام الفصل"
+                        options={servantOptions}
+                        selected={classData.servantNames || []}
+                        onChange={handleServantsChange}
+                    />
+
+                    <div className="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" onClick={onClose} className="btn btn-secondary">إلغاء</button>
+                        <button type="submit" className="btn btn-primary">{isEditMode ? 'حفظ التعديلات' : 'إضافة الفصل'}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 const QuickActions: React.FC<{
     onAddClass: () => void;
@@ -127,14 +315,14 @@ const AdministrativesPage: React.FC = () => {
             appSettings={appState.settings}
         />
        )}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl font-bold text-slate-900">الإداريات</h1>
             <p className="text-slate-500 mt-1">إدارة الخدمات، المستخدمين، والصلاحيات.</p>
         </div>
         <button
             onClick={handleBack}
-            className="btn btn-secondary"
+            className="btn btn-secondary self-start sm:self-auto"
         >
             <ArrowLeftIcon className="w-4 h-4" />
             <span>رجوع</span>
@@ -364,62 +552,106 @@ const CollapsibleLevelItem: React.FC<{
     );
 };
 
+const PriestCard: React.FC<{ user: User, servant?: Servant }> = ({ user, servant }) => (
+    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center text-center w-44 border border-slate-200">
+        <img 
+            src={servant?.image || `https://i.pravatar.cc/150?u=${user.id}`} 
+            alt={user.displayName}
+            className="w-24 h-24 rounded-full object-cover border-4 border-slate-200"
+        />
+        <h3 className="font-bold text-lg text-slate-800 mt-3">{user.displayName}</h3>
+        <div className="mt-2 text-sm text-slate-500 space-y-1">
+            {servant?.phone && (
+                <div className="flex items-center justify-center gap-2">
+                    <PhoneIcon className="w-4 h-4" />
+                    <span>{servant.phone}</span>
+                </div>
+            )}
+            <div className="flex items-center justify-center gap-2">
+                <UserIcon className="w-4 h-4" />
+                <span>@{user.username}</span>
+            </div>
+        </div>
+    </div>
+);
+
+
 const UserRoleSection: React.FC<{
   title: string;
-  description?: string;
   users: User[];
+  servants: Servant[];
   currentUser: User;
   onEdit: (user: User) => void;
   onDelete: (userId: string) => void;
   hideDelete?: boolean;
   isEditDisabled?: (user: User) => boolean;
-}> = ({ title, description, users, currentUser, onEdit, onDelete, hideDelete, isEditDisabled }) => (
-    <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-200">
-        <h3 className="font-bold text-lg text-slate-800 mb-1">{title}</h3>
-        {description && <p className="text-sm text-slate-500 mb-4">{description}</p>}
-        {users.length > 0 ? (
-            <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                    <thead className="bg-slate-200">
-                        <tr>
-                            <th className="text-right p-3 font-semibold text-slate-600">اسم العرض</th>
-                            <th className="text-right p-3 font-semibold text-slate-600">الرقم القومي</th>
-                            <th className="text-right p-3 font-semibold text-slate-600">اسم المستخدم</th>
-                            <th className="text-center p-3 font-semibold text-slate-600">إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                        {users.map(user => (
-                            <tr key={user.id}>
-                                <td className="p-3 font-medium text-slate-800">
-                                    {user.servantId ? (
-                                        <Link to={`/app/servant-profile/${user.servantId}`} className="text-violet-600 hover:underline">
-                                            {user.displayName}
-                                        </Link>
-                                    ) : (
-                                        user.displayName
-                                    )}
-                                </td>
-                                <td className="p-3 text-slate-600 font-mono">{user.nationalId || '-'}</td>
-                                <td className="p-3 text-slate-600 font-mono">@{user.username}</td>
-                                <td className="p-3">
-                                    <div className="flex gap-2 justify-center">
-                                        <button onClick={() => onEdit(user)} className="p-2 text-violet-500 hover:bg-violet-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="تعديل" disabled={isEditDisabled?.(user)}><EditIcon className="w-5 h-5"/></button>
-                                        {!hideDelete && (
-                                            <button onClick={() => onDelete(user.id)} disabled={user.id === currentUser.id} className="p-2 text-red-500 hover:bg-red-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="حذف"><TrashIcon className="w-5 h-5"/></button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+}> = ({ title, users, servants, currentUser, onEdit, onDelete, hideDelete, isEditDisabled }) => {
+    
+    if (title === 'الأباء الكهنة') {
+        return (
+            <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-200">
+                <h3 className="font-bold text-lg text-slate-800 mb-1">{title}</h3>
+                {users.length > 0 ? (
+                    <div className="flex flex-wrap gap-4 justify-center pt-4">
+                        {users.map(user => {
+                            const servant = servants.find(s => s.id === user.servantId);
+                            return <PriestCard key={user.id} user={user} servant={servant} />;
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-center text-slate-500 py-4">لا يوجد مستخدمون في هذا الدور.</p>
+                )}
             </div>
-        ) : (
-            <p className="text-center text-slate-500 py-4">لا يوجد مستخدمون في هذا الدور.</p>
-        )}
-    </div>
-);
+        );
+    }
+    
+    return (
+        <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-200">
+            <h3 className="font-bold text-lg text-slate-800 mb-1">{title}</h3>
+            {users.length > 0 ? (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead className="bg-slate-200">
+                            <tr>
+                                <th className="text-right p-3 font-semibold text-slate-600">اسم العرض</th>
+                                <th className="text-right p-3 font-semibold text-slate-600">الرقم القومي</th>
+                                <th className="text-right p-3 font-semibold text-slate-600">اسم المستخدم</th>
+                                <th className="text-center p-3 font-semibold text-slate-600">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-200">
+                            {users.map(user => (
+                                <tr key={user.id}>
+                                    <td className="p-3 font-medium text-slate-800">
+                                        {user.servantId ? (
+                                            <Link to={`/app/servant-profile/${user.servantId}`} className="text-violet-600 hover:underline">
+                                                {user.displayName}
+                                            </Link>
+                                        ) : (
+                                            user.displayName
+                                        )}
+                                    </td>
+                                    <td className="p-3 text-slate-600 font-mono">{user.nationalId || '-'}</td>
+                                    <td className="p-3 text-slate-600 font-mono">@{user.username}</td>
+                                    <td className="p-3">
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={() => onEdit(user)} className="p-2 text-violet-500 hover:bg-violet-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="تعديل" disabled={isEditDisabled?.(user)}><EditIcon className="w-5 h-5"/></button>
+                                            {!hideDelete && (
+                                                <button onClick={() => onDelete(user.id)} disabled={user.id === currentUser.id} className="p-2 text-red-500 hover:bg-red-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="حذف"><TrashIcon className="w-5 h-5"/></button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p className="text-center text-slate-500 py-4">لا يوجد مستخدمون في هذا الدور.</p>
+            )}
+        </div>
+    );
+};
 
 
 const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: string, type?: NotificationType['type']) => void, addUserFormRef: React.RefObject<HTMLDivElement>}> = ({ appState, showNotification, addUserFormRef }) => {
@@ -591,6 +823,7 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
             time: 'الآن',
             read: false,
             icon: BellIcon,
+            isImportant: true,
         };
         
         setNotifications(prev => [newNotification, ...prev]);
@@ -602,7 +835,7 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
         
     const roleTranslations: Record<UserRole, string> = {
         priest: 'الأباء الكهنة',
-        general_secretary: 'امين عام',
+        general_secretary: 'مدير موقع',
         assistant_secretary: 'امين مساعد',
         secretary: 'أمين',
         level_secretary: 'امين مرحلة',
@@ -611,502 +844,120 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
     };
     
     const priests = users.filter(u => u.roles.includes('priest'));
-    const generalSecretaries = users.filter(u => u.roles.includes('general_secretary'));
-    const assistantSecretaries = users.filter(u => u.roles.includes('assistant_secretary'));
-    const secretaries = users.filter(u => u.roles.includes('secretary'));
-    const levelSecretaries = users.filter(u => u.roles.includes('level_secretary'));
-    const classSupervisors = users.filter(u => u.roles.includes('class_supervisor'));
-    const servantUsers = users.filter(u => u.roles.includes('servant'));
+    const generalSecretary = users.filter(u => u.roles.includes('general_secretary') && u.nationalId === SUPER_ADMIN_NATIONAL_ID);
     
-    const handleLevelIdChange = (index: number, value: string) => {
-        setUserForm(prev => {
-            const newLevelIds = [...(prev.levelIds || [])];
-            newLevelIds[index] = value;
-            return { ...prev, levelIds: newLevelIds };
-        });
-    };
+    const higherRoles: UserRole[] = ['priest', 'general_secretary', 'assistant_secretary', 'secretary', 'level_secretary'];
+    
+    const secretaries = users.filter(u => u.roles.includes('secretary') && !u.roles.includes('general_secretary'));
+    const levelSecretaries = users.filter(u => u.roles.includes('level_secretary') && !higherRoles.some(r => r !== 'level_secretary' && u.roles.includes(r)));
+    const classSupervisors = users.filter(u => u.roles.includes('class_supervisor') && !higherRoles.some(r => r !== 'class_supervisor' && u.roles.includes(r)));
+    const servantsOnly = users.filter(u => u.roles.includes('servant') && !u.roles.includes('class_supervisor') && !higherRoles.some(r => r !== 'servant' && u.roles.includes(r)));
 
-    const addLevelIdField = () => {
-        setUserForm(prev => ({ ...prev, levelIds: [...(prev.levelIds || []), ''] }));
-    };
 
-    const removeLevelIdField = (index: number) => {
-        setUserForm(prev => {
-            const newLevelIds = [...(prev.levelIds || [])];
-            newLevelIds.splice(index, 1);
-            return { ...prev, levelIds: newLevelIds };
-        });
-    };
-
-    const handleNewUserFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        if (name === 'nationalId') {
-            const numericValue = value.replace(/\D/g, '');
-            if (numericValue.length <= 14) {
-                setNewUserForm(prev => ({ ...prev, [name]: numericValue }));
-            }
-        } else {
-            setNewUserForm(prev => ({ ...prev, [name]: value }));
-        }
+    const isEditDisabled = (user: User) => {
+        return isPriest && user.roles.includes('general_secretary');
     };
     
-    const handleAddNewUser = () => {
-        const { displayName, nationalId, password, role } = newUserForm;
-    
-        if (!displayName.trim() || !nationalId.trim() || !password.trim()) {
-            showNotification('يرجى ملء جميع الحقول المطلوبة.', 'error');
-            return;
-        }
-        if (nationalId.length !== 14) {
-            showNotification('الرقم القومي يجب أن يتكون من 14 رقمًا.', 'error');
-            return;
-        }
-        if (users.some(u => u.username === nationalId || u.nationalId === nationalId)) {
-            showNotification('الرقم القومي أو اسم المستخدم هذا مسجل بالفعل.', 'error');
-            return;
-        }
-    
-        const newServantId = `servant-${Date.now()}`;
-        const newServant: Servant = {
-          id: newServantId,
-          name: displayName.trim(),
-          phone: '',
-          email: '',
-          address: '',
-          notes: `تم إنشاؤه بواسطة المدير العام.`,
-          serviceAssignments: [],
-        };
-        setServants(prev => [...prev, newServant]);
-    
-        const newUser: User = {
-            id: `user-${Date.now()}`,
-            username: nationalId,
-            password: password,
-            displayName: displayName.trim(),
-            nationalId: nationalId,
-            roles: [role],
-            servantId: newServantId,
-            profileComplete: true,
-        };
-        setUsers(prev => [...prev, newUser]);
-        
-        showNotification('تم إضافة المستخدم والخادم بنجاح!', 'success');
-        setNewUserForm({
-            displayName: '',
-            nationalId: '',
-            password: '',
-            role: 'servant' as UserRole,
-        });
-    };
-    
-    const roleOptions = Object.entries(roleTranslations)
-        .filter(([roleKey]) => !(isPriest && roleKey === 'general_secretary'));
-
-    const renderUserEditFormContent = () => {
-        const isSpecialUser = editingUser?.nationalId === SUPER_ADMIN_NATIONAL_ID;
-
-        const handleSingleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-            const newRole = e.target.value as UserRole;
-            setUserForm(prev => ({
-                ...prev,
-                roles: [newRole]
-            }));
-        };
-
-        return (
-            <div ref={formRef} className="pt-6 mt-4 border-t border-slate-200 animate-fade-in">
-                <h3 className="font-semibold text-lg text-slate-800 mb-4">{editingUser ? `تعديل المستخدم: ${editingUser.displayName}` : 'إضافة مستخدم جديد'}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                    <InputField label="الاسم كامل ثلاثى" name="displayName" value={userForm.displayName} onChange={handleUserFormChange} />
-                    <div>
-                        <label htmlFor="nationalId" className="block text-xs font-medium text-slate-700 mb-1">الرقم القومي</label>
-                        <input
-                            type="text"
-                            id="nationalId"
-                            name="nationalId"
-                            value={userForm.nationalId || ''}
-                            onChange={handleUserFormChange}
-                            className="form-input text-sm"
-                            maxLength={14}
-                            placeholder="14 رقم"
-                        />
-                    </div>
-                    <InputField label="اسم المستخدم (للدخول)" name="username" value={userForm.username} onChange={handleUserFormChange} />
-                    <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">كلمة المرور {editingUser && '(اختياري للتغيير)'}</label>
-                        <input type="password" name="password" value={userForm.password} onChange={handleUserFormChange} className="form-input text-sm"/>
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">الأدوار</label>
-                        {isSpecialUser ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                                {roleOptions.map(([roleKey, roleName]) => (
-                                    <label key={roleKey} className="flex items-center gap-2 p-2 bg-slate-100 rounded-md">
-                                        <input
-                                            type="checkbox"
-                                            checked={(userForm.roles || []).includes(roleKey as UserRole)}
-                                            onChange={(e) => handleRolesChange(roleKey as UserRole, e.target.checked)}
-                                            className="form-checkbox h-4 w-4 text-violet-600 rounded focus:ring-violet-500"
-                                            disabled={(roleKey === 'general_secretary' && userForm.id === currentUser.id) || (isPriest && roleKey === 'general_secretary')}
-                                        />
-                                        <span className="text-sm font-medium">{roleName}</span>
-                                    </label>
-                                ))}
-                            </div>
+    return (
+        <div className="space-y-6">
+            <SettingsSection title="بيانات الكنيسة" icon={ImageIcon}>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">اسم الكنيسة</label>
+                    <p className="form-input bg-slate-100 text-slate-600">{settings.churchName || 'غير محدد'}</p>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">شعار الكنيسة</label>
+                    <div className="flex items-center gap-4">
+                        <div className="w-24 h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                        {settings.churchLogo ? (
+                            <img src={settings.churchLogo} alt="Church Logo" className="w-full h-full object-contain" />
                         ) : (
-                             <select
-                                className="form-select mt-2"
-                                value={userForm.roles[0] || 'servant'}
-                                onChange={handleSingleRoleChange}
-                            >
-                                {roleOptions.map(([roleKey, roleName]) => (
-                                    <option key={roleKey} value={roleKey}>{roleName}</option>
-                                ))}
-                            </select>
+                            <ImageIcon className="w-10 h-10 text-slate-400" />
                         )}
-                    </div>
-                    
-                    <div className="md:col-span-2 space-y-2">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">المرحلة التى يخدم بها</label>
-                        {(userForm.levelIds || []).map((levelId, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                                <select
-                                    value={levelId}
-                                    onChange={(e) => handleLevelIdChange(index, e.target.value)}
-                                    className="form-select text-sm flex-grow"
-                                >
-                                    <option value="">-- اختر مرحلة --</option>
-                                    {appState.levels.map(l => (
-                                        <option key={l.id} value={l.id}>{l.name}</option>
-                                    ))}
-                                </select>
-                                <button
-                                    type="button"
-                                    onClick={() => removeLevelIdField(index)}
-                                    className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
-                                >
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={addLevelIdField}
-                            className="w-full text-sm flex items-center justify-center gap-2 bg-slate-200 text-slate-700 py-2 rounded-lg hover:bg-slate-300"
-                        >
-                            <PlusIcon className="w-4 h-4" />
-                            إضافة مرحلة خدمة أخرى
-                        </button>
-                    </div>
-
-                    <div className="flex gap-2 md:col-span-2 justify-end">
-                        {editingUser && <button type="button" onClick={handleCancelEdit} className="btn btn-secondary" title="إلغاء التعديل">إلغاء</button>}
-                        <button type="button" onClick={handleSaveUser} className="btn btn-primary">{editingUser ? 'حفظ التعديلات' : 'إضافة مستخدم'}</button>
+                        </div>
+                        <div>
+                        <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                            {settings.churchLogo ? `تغيير الشعار` : `رفع شعار`}
+                            <input type="file" onChange={handleChurchLogoChange} accept="image/*" className="hidden" />
+                        </label>
+                        </div>
                     </div>
                 </div>
-            </div>
-        );
-    }
-
-
-    return (
-        <div className="space-y-8">
-            <SettingsSection title="بيانات الكنيسة" icon={BookOpenIcon}>
-                 <div className="bg-white p-3 rounded-lg flex justify-center items-center border border-slate-200">
-                    <span className="font-semibold text-slate-800 text-center">كاتدرائية العذراء مريم والشهيد مارمينا العجايبي ( بمنيا القمح )</span>
-                 </div>
-                 <div className="bg-white p-3 rounded-lg border border-slate-200">
-                    <ImageUploader simple label="شعار الكنيسة" imageSrc={settings.churchLogo} onChange={handleChurchLogoChange} />
-                 </div>
             </SettingsSection>
-            
-            <SettingsSection title="إرسال إشعار للجميع" icon={BellIcon}>
-                 <p className="text-sm text-slate-500 -mt-2 mb-2">سيظهر هذا الإشعار لجميع المستخدمين في أيقونة الجرس.</p>
-                 <textarea
+
+            <SettingsSection title="إرسال إشعار عام" icon={BellIcon}>
+                 <p className="text-sm text-slate-500 -mt-2 mb-2">سيتم إرسال هذا الإشعار إلى جميع المستخدمين.</p>
+                <textarea 
                     value={notificationMessage}
                     onChange={(e) => setNotificationMessage(e.target.value)}
-                    placeholder="اكتب رسالة الإشعار هنا..."
+                    className="form-textarea w-full"
                     rows={3}
-                    className="form-textarea"
-                    disabled={isSendingNotification}
+                    placeholder="اكتب رسالتك هنا..."
                 />
                 <div className="text-left">
                     <button onClick={handleSendGlobalNotification} disabled={isSendingNotification} className="btn btn-primary">
-                    {isSendingNotification ? 'جاري الإرسال...' : 'إرسال الإشعار'}
+                        {isSendingNotification ? "جاري الإرسال..." : "إرسال الإشعار"}
                     </button>
                 </div>
             </SettingsSection>
-
-            <div className="space-y-6">
-                <UserRoleSection 
-                    title="الأباء الكهنة"
-                    description="بيانات الأباء الكهنة المسؤولين عن الخدمة."
-                    users={priests} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                    hideDelete={true}
-                />
-                <UserRoleSection 
-                    title="المديريين" 
-                    users={generalSecretaries} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                    hideDelete={true}
-                    isEditDisabled={(user) => isPriest && user.nationalId === SUPER_ADMIN_NATIONAL_ID}
-                />
-                <UserRoleSection 
-                    title="الأمناء" 
-                    users={secretaries} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                />
-                 <UserRoleSection 
-                    title="الأمناء المساعدون" 
-                    users={assistantSecretaries} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                />
-                 <UserRoleSection 
-                    title="أمناء المراحل" 
-                    users={levelSecretaries} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                />
-                <UserRoleSection 
-                    title="مسؤولو الفصول"
-                    description="يشمل أمناء الخدمة والخدام المسؤولين عن الفصول."
-                    users={classSupervisors} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                />
-                 <UserRoleSection 
-                    title="الخدام" 
-                    users={servantUsers} 
-                    currentUser={currentUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                />
-            </div>
             
-            {editingUser && renderUserEditFormContent()}
-            
-            <div ref={addUserFormRef} className="pt-8 mt-8 border-t-2 border-slate-200">
-                <SettingsSection title="إضافة مستخدم جديد" icon={UserPlusIcon}>
-                    <p className="text-sm text-slate-500 -mt-2 mb-4">
-                      سيتم إنشاء ملف خادم مرتبط بهذا المستخدم تلقائياً.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <InputField label="الاسم كامل ثلاثى" name="displayName" value={newUserForm.displayName} onChange={handleNewUserFormChange} />
-                        <div>
-                            <label htmlFor="newUserNationalId" className="block text-xs font-medium text-slate-700 mb-1">الرقم القومي (14 رقم)</label>
-                            <input
-                                type="text"
-                                id="newUserNationalId"
-                                name="nationalId"
-                                value={newUserForm.nationalId}
-                                onChange={handleNewUserFormChange}
-                                className="form-input text-sm"
-                                maxLength={14}
-                                placeholder="يُستخدم كاسم للمستخدم"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">كلمة المرور</label>
-                            <input type="password" name="password" value={newUserForm.password} onChange={e => handleNewUserFormChange(e as any)} className="form-input text-sm"/>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">الدور</label>
-                            <select name="role" value={newUserForm.role} onChange={e => handleNewUserFormChange(e as any)} className="form-select">
-                              {roleOptions.map(([roleKey, roleName]) => (
-                                <option key={roleKey} value={roleKey}>{roleName}</option>
-                              ))}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="flex justify-end mt-4">
-                        <button type="button" onClick={handleAddNewUser} className="btn btn-primary">إضافة المستخدم</button>
-                    </div>
-                </SettingsSection>
-            </div>
-        </div>
-    )
-}
-
-
-const ServantNamesManager: React.FC<{
-    names: string[],
-    setNames: (names: string[]) => void
-}> = ({ names, setNames }) => {
-    
-    const [nameToAdd, setNameToAdd] = useState('');
-
-    const handleAddName = () => {
-        if (nameToAdd.trim() && !names.includes(nameToAdd.trim())) {
-            setNames([...names, nameToAdd.trim()]);
-            setNameToAdd('');
-        }
-    }
-
-    const handleRemoveName = (nameToRemove: string) => {
-        setNames(names.filter(name => name !== nameToRemove));
-    }
-
-    return (
-        <div className="space-y-3 pt-4 border-t border-slate-200">
-            <h4 className="text-sm font-medium text-slate-700">خدام الفصل ({names.length})</h4>
-            <div className="space-y-2">
-                {names.map((name, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm bg-slate-100 p-2 rounded-md">
-                        <span className="">{name}</span>
-                        <button type="button" onClick={() => handleRemoveName(name)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4"/></button>
-                    </div>
-                ))}
-                 {names.length === 0 && <p className="text-xs text-slate-500">لا يوجد خدام مضافين.</p>}
-            </div>
-            <div className="flex gap-2 items-end">
-                <div className="w-full">
-                    <label htmlFor="servant-name-input" className="block text-xs font-medium text-slate-400 mb-1">إضافة اسم خادم</label>
-                    <input 
-                        id="servant-name-input"
-                        type="text"
-                        value={nameToAdd}
-                        onChange={e => setNameToAdd(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddName(); }}}
-                        className="form-input text-sm"
-                        placeholder="اكتب الاسم واضغط Enter"
-                    />
-                </div>
-                <button type="button" onClick={handleAddName} className="p-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 shrink-0"><PlusIcon className="w-5 h-5"/></button>
-            </div>
+             <UserRoleSection
+                title={roleTranslations.priest}
+                users={priests}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={isEditDisabled}
+            />
+             <UserRoleSection
+                title={roleTranslations.general_secretary}
+                users={generalSecretary}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={(user) => user.nationalId === SUPER_ADMIN_NATIONAL_ID && isPriest}
+                hideDelete
+            />
+             <UserRoleSection
+                title="امناء الخدمة"
+                users={secretaries}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={isEditDisabled}
+            />
+            <UserRoleSection
+                title={roleTranslations.level_secretary}
+                users={levelSecretaries}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={isEditDisabled}
+            />
+             <UserRoleSection
+                title={roleTranslations.class_supervisor}
+                users={classSupervisors}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={isEditDisabled}
+            />
+             <UserRoleSection
+                title={roleTranslations.servant}
+                users={servantsOnly}
+                servants={servants}
+                currentUser={currentUser}
+                onEdit={handleEditUser}
+                onDelete={handleDeleteUser}
+                isEditDisabled={isEditDisabled}
+            />
         </div>
     );
-}
-
-const InputField: React.FC<{label:string, name:string, value: string, onChange: (e:React.ChangeEvent<HTMLInputElement | HTMLSelectElement>)=>void, type?: string}> = ({label, name, value, onChange, type='text'}) => (
-    <div className="w-full">
-        <label htmlFor={name} className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
-        <input
-            type={type}
-            id={name}
-            name={name}
-            value={value}
-            onChange={onChange}
-            className="form-input text-sm"
-        />
-    </div>
-);
-
-const ImageUploader: React.FC<{label: string, imageSrc?: string, onChange: (e: React.ChangeEvent<HTMLInputElement>)=>void, simple?: boolean}> = ({label, imageSrc, onChange, simple}) => (
-  <div>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
-      <div className="flex items-center gap-4">
-        <div className={`bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 ${simple ? 'w-10 h-10' : 'w-16 h-16'}`}>
-        {imageSrc ? (
-            <img src={imageSrc} alt={label} className="w-full h-full object-cover" />
-        ) : (
-            <span className="text-xs text-slate-500 text-center p-1">لا يوجد</span>
-        )}
-        </div>
-        <div>
-        <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-sm transition-colors">
-            {imageSrc ? `تغيير` : `رفع`}
-            <input type="file" onChange={onChange} accept="image/*" className="hidden" />
-        </label>
-        </div>
-    </div>
-  </div>
-);
-
-const ClassModal: React.FC<{
-    onClose: () => void,
-    classToEdit: ClassType | null,
-    appState: AppState,
-    showNotification: (msg: string, type?: NotificationType['type']) => void,
-}> = ({ onClose, classToEdit, appState, showNotification }) => {
-    const { levels, servants, setClasses } = appState;
-    
-    const getInitialFormState = () => ({
-        level_id: classToEdit?.level_id || '',
-        name: classToEdit?.name || '',
-        grade: classToEdit?.grade || '',
-        supervisorName: classToEdit?.supervisorName || '',
-        servantNames: classToEdit?.servantNames || [],
-    });
-
-    const [formState, setFormState] = useState(getInitialFormState);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormState(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!formState.level_id || !formState.name) {
-            showNotification('يرجى اختيار مرحلة وإدخال اسم الفصل.', 'error');
-            return;
-        }
-
-        if (classToEdit) {
-            setClasses(prev => prev.map(c => c.id === classToEdit.id ? { ...c, ...formState } : c));
-            showNotification('تم تعديل الفصل بنجاح.');
-        } else {
-            const newClass: ClassType = {
-                id: Date.now().toString(),
-                ...formState,
-                logo: '',
-            };
-            setClasses(prev => [...prev, newClass]);
-            showNotification('تم إضافة الفصل بنجاح.');
-        }
-        onClose();
-    };
-    
-    return (
-        <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 space-y-6 animate-fade-in" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold">{classToEdit ? 'تعديل الفصل' : 'إضافة فصل جديد'}</h2>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100"><XIcon className="w-6 h-6 text-slate-500"/></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="level_id" className="block text-sm font-medium text-slate-700 mb-1">المرحلة</label>
-                        <select id="level_id" name="level_id" value={formState.level_id} onChange={handleChange} className="form-select" required>
-                            <option value="" disabled>-- اختر مرحلة --</option>
-                            {levels.map(level => <option key={level.id} value={level.id}>{level.name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="grade" className="block text-sm font-medium text-slate-700 mb-1">الصف</label>
-                        <input type="text" id="grade" name="grade" value={formState.grade} onChange={handleChange} className="form-input" placeholder="مثال: الصف الأول الابتدائي" />
-                    </div>
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">اسم الفصل</label>
-                        <input type="text" id="name" name="name" value={formState.name} onChange={handleChange} className="form-input" required placeholder="مثال: فصل القديس مارمرقس" />
-                    </div>
-                    <div>
-                        <label htmlFor="supervisorName" className="block text-sm font-medium text-slate-700 mb-1">المشرف</label>
-                        <select id="supervisorName" name="supervisorName" value={formState.supervisorName} onChange={handleChange} className="form-select">
-                            <option value="">-- لم يعين --</option>
-                            {servants.map(servant => <option key={servant.id} value={servant.name}>{servant.name}</option>)}
-                        </select>
-                    </div>
-                    <div className="pt-4 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="btn btn-secondary">إلغاء</button>
-                        <button type="submit" className="btn btn-primary">{classToEdit ? 'حفظ التغييرات' : 'إضافة الفصل'}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    )
 }
 
 export default AdministrativesPage;

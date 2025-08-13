@@ -91,12 +91,12 @@ const SchedulePage: React.FC = () => {
   if (!selectedLevelId) {
     return (
       <div className="space-y-8">
-        <div className="relative flex justify-center items-center">
-            <div className="text-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="text-center sm:text-right flex-grow">
                 <h1 className="text-3xl font-bold text-slate-900">جدول الخدمة</h1>
                 <p className="text-slate-500 mt-1">اختر المرحلة لعرض جدول الفصول أو المنهج.</p>
             </div>
-             <button onClick={handleBack} className="btn btn-secondary absolute left-0">
+             <button onClick={handleBack} className="btn btn-secondary self-center sm:self-auto">
                 <ArrowLeftIcon className="w-4 h-4" />
                 <span>رجوع</span>
             </button>
@@ -144,14 +144,14 @@ const SchedulePage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-        <div className="relative flex justify-center items-center">
-            <div className="text-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="text-center sm:text-right flex-grow">
                 <h1 className="text-3xl font-bold text-slate-900">جدول خدمة: {selectedLevel?.name}</h1>
                 <p className="text-slate-500 mt-1">اختر الفصل لعرض المنهج الدراسي.</p>
             </div>
             <button
                 onClick={() => setSearchParams({})}
-                className="btn btn-secondary absolute left-0"
+                className="btn btn-secondary self-center sm:self-auto"
             >
                 <ArrowLeftIcon className="w-4 h-4" />
                 <span>العودة لاختيار المرحلة</span>

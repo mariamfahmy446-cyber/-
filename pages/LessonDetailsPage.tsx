@@ -171,13 +171,13 @@ const LessonDetailsPage: React.FC = () => {
             </div>
         )}
 
-        <div className="flex justify-between items-center">
-             <button onClick={handleBack} className="btn btn-secondary">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+             <button onClick={handleBack} className="btn btn-secondary self-start sm:self-center">
                 <ArrowLeftIcon className="w-4 h-4"/>
                 <span>رجوع</span>
              </button>
-             <h1 className="text-4xl font-extrabold text-slate-800 text-center flex-grow">{lesson.lessonName}</h1>
-             <div className="w-24"></div>
+             <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-800 text-center flex-grow">{lesson.lessonName}</h1>
+             <div className="w-24 hidden sm:block"></div>
         </div>
 
       <div className="bg-white p-6 rounded-xl shadow-md text-center">

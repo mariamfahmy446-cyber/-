@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ levels, classes, isCollapsed, setIsCo
     
     return menuItems.filter(item => {
         if (isServant) {
-            if (item.to === '/app/classes-and-levels' || item.to === '/app/administratives') {
+            if (item.to === '/app/administratives') { // Only hide administratives
                 return false;
             }
         }

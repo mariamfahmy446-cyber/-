@@ -56,18 +56,26 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScan, onClose }) => {
         animationFrameId = requestAnimationFrame(tick);
     };
 
+    const startStream = (stream: MediaStream) => {
+      streamRef.current = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", "true"); 
+      video.play();
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => {
-        streamRef.current = stream;
-        video.srcObject = stream;
-        video.setAttribute("playsinline", "true"); 
-        video.play();
-        animationFrameId = requestAnimationFrame(tick);
-      })
+      .then(startStream)
       .catch(err => {
-        console.error("Error accessing camera: ", err);
-        alert("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
-        onClose();
+        console.warn("Could not get environment camera, trying default camera.", err);
+        // Fallback to any available camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(startStream)
+            .catch(err2 => {
+                console.error("Error accessing camera: ", err2);
+                alert("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
+                onClose();
+            });
       });
 
     return () => {
@@ -112,6 +120,7 @@ const HymnsPage: React.FC = () => {
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
     const [fileName, setFileName] = useState('');
     const [expandedLyrics, setExpandedLyrics] = useState<Record<string, boolean>>({});
+    const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
     const [isScannerOpen, setIsScannerOpen] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +214,10 @@ const HymnsPage: React.FC = () => {
         setExpandedLyrics(prev => ({ ...prev, [id]: !prev[id] }));
     }
 
+    const toggleFile = (id: string) => {
+        setExpandedFiles(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
     const handleQrScanComplete = (scannedData: string) => {
         setIsScannerOpen(false);
         if (scannedData.includes('youtube.com') || scannedData.includes('youtu.be')) {
@@ -220,12 +233,12 @@ const HymnsPage: React.FC = () => {
             {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} appSettings={appState.settings} />}
             {isScannerOpen && <QrScanner onScan={handleQrScanComplete} onClose={() => setIsScannerOpen(false)} />}
             
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900">إدارة الترانيم</h1>
                     <p className="text-slate-500 mt-1">إضافة وتعديل الترانيم وربطها بالملفات والروابط.</p>
                 </div>
-                <button onClick={handleBack} className="btn btn-secondary">
+                <button onClick={handleBack} className="btn btn-secondary self-start sm:self-auto">
                     <ArrowLeftIcon className="w-4 h-4" />
                     <span>رجوع</span>
                 </button>
@@ -264,12 +277,12 @@ const HymnsPage: React.FC = () => {
                         <TextAreaField label="كلمات الترنيمة" name="lyrics" value={formState.lyrics} onChange={handleInputChange} />
                         
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">ملف (صوت أو PDF)</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">ملف (صوت، صورة، PDF)</label>
                             <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors border border-dashed">
                                 <DownloadIcon className="w-5 h-5"/>
                                 <span>{fileName ? 'تغيير الملف' : 'اختيار ملف'}</span>
                             </button>
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="audio/*,application/pdf" className="hidden"/>
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="audio/*,application/pdf,image/*" className="hidden"/>
                             {fileName && (
                                 <div className="mt-2 flex items-center justify-between text-sm bg-green-100 text-green-800 p-2 rounded-md">
                                     <span className="truncate">{fileName}</span>
@@ -321,6 +334,31 @@ const HymnsPage: React.FC = () => {
                                    )}
                                </div>
                            )}
+                           
+                           {hymn.file && (
+                                <div className="mt-2">
+                                    <button onClick={() => toggleFile(hymn.id)} className="w-full flex justify-between items-center text-sm font-semibold text-slate-600 hover:text-slate-800 py-1">
+                                        <span>عرض الملف المرفق</span>
+                                        <ChevronDownIcon className={`w-5 h-5 transition-transform ${expandedFiles[hymn.id] ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {expandedFiles[hymn.id] && (
+                                        <div className="mt-2 p-2 bg-slate-50 rounded-lg border">
+                                            {(() => {
+                                                const mimeType = hymn.file.data.substring(hymn.file.data.indexOf(':') + 1, hymn.file.data.indexOf(';'));
+                                                if (mimeType.startsWith('image/')) {
+                                                    return <img src={hymn.file.data} alt={hymn.file.name} className="max-w-full rounded-md mx-auto" />;
+                                                } else if (mimeType.startsWith('audio/')) {
+                                                    return <audio controls src={hymn.file.data} className="w-full">متصفحك لا يدعم عنصر الصوت.</audio>;
+                                                } else if (mimeType === 'application/pdf') {
+                                                    return <iframe src={hymn.file.data} title={hymn.file.name} className="w-full h-96 rounded-md border" />;
+                                                } else {
+                                                    return <p className="text-sm text-slate-500">نوع الملف غير مدعوم للعرض المباشر.</p>;
+                                                }
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                            <div className="flex items-center gap-2 pt-3 mt-3 border-t">
                                <MediaButton 

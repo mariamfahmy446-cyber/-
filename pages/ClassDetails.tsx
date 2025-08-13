@@ -18,7 +18,8 @@ const ChildrenTable: React.FC<{
   onEdit: (childId: string) => void;
   onDelete: (childId: string) => void;
   onViewCard: (childId: string) => void;
-}> = ({ classChildren, onEdit, onDelete, onViewCard }) => {
+  isSiteAdmin: boolean;
+}> = ({ classChildren, onEdit, onDelete, onViewCard, isSiteAdmin }) => {
  
   if (classChildren.length === 0) {
     return <p className="text-center text-slate-500 py-8">لا يوجد أطفال في هذا الفصل بعد.</p>;
@@ -53,7 +54,9 @@ const ChildrenTable: React.FC<{
                 <td className="p-3">
                 <div className="flex gap-1">
                     <button onClick={() => onEdit(child.id)} className="p-2 text-violet-600 hover:text-violet-800" aria-label={`تعديل ${child.name}`}><EditIcon className="w-5 h-5" /></button>
-                    <button onClick={() => onDelete(child.id)} className="p-2 text-red-600 hover:text-red-800" aria-label={`حذف ${child.name}`}><TrashIcon className="w-5 h-5" /></button>
+                    {isSiteAdmin && (
+                        <button onClick={() => onDelete(child.id)} className="p-2 text-red-600 hover:text-red-800" aria-label={`حذف ${child.name}`}><TrashIcon className="w-5 h-5" /></button>
+                    )}
                     <button onClick={() => onViewCard(child.id)} className="p-2 text-violet-600 hover:text-violet-800" aria-label={`عرض كارت ${child.name}`}><IdIcon className="w-5 h-5" /></button>
                 </div>
                 </td>
@@ -90,7 +93,7 @@ const ImageUploader: React.FC<{label: string, imageSrc?: string, onChange: (e: R
 
 const ClassDetails: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { classes, children, setChildren, servants, setClasses } = appState;
+  const { classes, children, setChildren, servants, setClasses, currentUser } = appState;
   const navigate = useNavigate();
   const { classId } = useParams<{ classId: string }>();
   const location = useLocation();
@@ -99,6 +102,11 @@ const ClassDetails: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const activeClass = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
+
+  const isSiteAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.roles.includes('general_secretary') && currentUser.nationalId === '29908241301363';
+  }, [currentUser]);
   
   const [editableClass, setEditableClass] = useState<Class | null>(activeClass || null);
 
@@ -234,7 +242,7 @@ const ClassDetails: React.FC = () => {
        )}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
-                {activeClass.logo ? <img src={activeClass.logo} alt={activeClass.name} className="w-20 h-20 object-contain rounded-lg" /> : <div className="w-20 h-20 rounded-lg bg-slate-100 flex items-center justify-center"><UsersIcon className="w-10 h-10 text-slate-400"/></div>}
+                {activeClass.logo ? <img src={activeClass.logo} alt={activeClass.name} className="w-20 h-20 object-contain rounded-lg bg-white p-1 shadow-sm border border-slate-200" /> : <div className="w-20 h-20 rounded-lg bg-slate-100 flex items-center justify-center"><UsersIcon className="w-10 h-10 text-slate-400"/></div>}
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">{`${activeClass.grade} - ${activeClass.name}`}</h1>
                     <p className="text-md text-slate-600 flex items-center gap-2 mt-1">
@@ -315,12 +323,12 @@ const ClassDetails: React.FC = () => {
        )}
 
        <div className="bg-white rounded-lg shadow">
-        <div className="p-4 flex flex-wrap justify-between items-center border-b gap-4">
-            <div className="flex items-baseline gap-3">
+        <div className="p-4 flex flex-col md:flex-row justify-between items-center border-b gap-4">
+            <div className="flex items-baseline gap-3 self-start md:self-center">
                 <h3 className="font-bold text-lg">قائمة الأطفال</h3>
                 <span className="text-sm text-slate-500">{classChildren.length} طلاب ({boys} أولاد / {girls} بنات)</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
                 <button
                     onClick={() => setIsSettingsOpen(!isSettingsOpen)}
                     className="btn btn-secondary"
@@ -348,7 +356,7 @@ const ClassDetails: React.FC = () => {
                 </button>
             </div>
         </div>
-        <ChildrenTable classChildren={classChildren} onEdit={(id) => navigate(`/app/edit-child/${id}`)} onDelete={handleDeleteChild} onViewCard={handleViewCard} />
+        <ChildrenTable classChildren={classChildren} onEdit={(id) => navigate(`/app/edit-child/${id}`)} onDelete={handleDeleteChild} onViewCard={handleViewCard} isSiteAdmin={isSiteAdmin} />
        </div>
     </div>
   );

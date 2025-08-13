@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { HashRouter, Routes, Route, Outlet, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
 import type { Child, Settings, Class, EducationLevel, Hymn, AttendanceRecord, PointsSettings, Servant, SyllabusItem, ClassMaterial, LessonAid, User, AppState, NotificationItem } from './types';
@@ -33,12 +33,14 @@ import RegisterPage from './pages/RegisterPage';
 import ServantProfilePage from './pages/ServantProfilePage';
 import ReportsPage from './pages/Reports';
 import ClassesAndLevels from './pages/ClassesAndLevels';
-import { ArrowLeftIcon, ClipboardCheckIcon, BookOpenIcon, CheckIcon, UserPlusIcon, BellIcon } from './components/Icons';
+import { ArrowLeftIcon, ClipboardCheckIcon, BookOpenIcon, CheckIcon, UserPlusIcon, BellIcon, LogInIcon } from './components/Icons';
 import HomePage from './pages/HomePage';
 import EditLevelSubgroupPage from './pages/EditLevelSubgroupPage';
 import WelcomeModal from './components/WelcomeModal';
 import useFilteredAppState from './hooks/useFilteredAppState';
 import AdministrativesPage from './pages/Administratives';
+import { playSound, playVibration } from './utils/audio';
+
 
 interface OutletContextType {
   appState: AppState;
@@ -127,11 +129,7 @@ function App() {
   const [lessonAids, setLessonAids] = useLocalStorage<LessonAid[]>('lessonAids_reverted', []);
   const [language, setLanguage] = useLocalStorage<string>('appLanguage_reverted', 'ar');
   const [users, setUsers] = useLocalStorage<User[]>('users_reverted', INITIAL_USERS);
-  const [notifications, setNotifications] = useLocalStorage<NotificationItem[]>('appNotifications_reverted', [
-    { id: 1, text: 'تم تسجيل حضور فصل الأمل بنجاح.', time: 'منذ 5 دقائق', read: false, icon: ClipboardCheckIcon },
-    { id: 2, text: 'لديك درس جديد غداً: الخلق.', time: 'منذ ساعة', read: false, icon: BookOpenIcon },
-    { id: 3, text: 'تمت الموافقة على طلب إجازة.', time: 'منذ يومين', read: true, icon: CheckIcon }
-  ]);
+  const [notifications, setNotifications] = useLocalStorage<NotificationItem[]>('appNotifications_reverted', []);
   
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser_v3', null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -144,6 +142,23 @@ function App() {
     if (user.password !== password) {
         return { success: false, message: 'كلمة المرور غير صحيحة.' };
     }
+    
+    // Send login notification to site admin
+    const SUPER_ADMIN_NATIONAL_ID = '29908241301363';
+    const siteAdmin = users.find(u => u.nationalId === SUPER_ADMIN_NATIONAL_ID);
+
+    if (siteAdmin && siteAdmin.id !== user.id) {
+        const newNotification: NotificationItem = {
+            id: Date.now(),
+            text: `قام المستخدم "${user.displayName}" بتسجيل الدخول.`,
+            time: new Date().toLocaleTimeString('ar-EG'),
+            read: false,
+            icon: LogInIcon,
+            targetUserId: siteAdmin.id,
+        };
+        setNotifications(prev => [newNotification, ...prev]);
+    }
+
     setCurrentUser(user);
     if (user.profileComplete) {
         setShowWelcomeModal(true);
@@ -181,7 +196,7 @@ function App() {
       phone: '',
       email: '',
       address: '',
-      notes: 'ملف شخصي جديد، يحتاج إلى استكمال البيانات.',
+      notes: 'ملف شخصي جديد, يحتاج إلى استكمال البيانات.',
       serviceAssignments: [],
     };
     setServants(prev => [...prev, newServant]);
@@ -215,6 +230,36 @@ function App() {
     });
   }, []); 
 
+    // Global click sound effect
+    useEffect(() => {
+        const handleClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (target.closest('a, button, [role="button"], input[type="checkbox"], input[type="radio"]')) {
+                if (settings.enableSounds) playSound('click');
+                if (settings.enableVibrations) playVibration('click');
+            }
+        };
+        document.addEventListener('click', handleClick, true);
+        return () => {
+            document.removeEventListener('click', handleClick, true);
+        };
+    }, [settings.enableSounds, settings.enableVibrations]);
+
+    // Important notification sound effect
+    const prevNotificationsRef = useRef<NotificationItem[]>(notifications);
+    useEffect(() => {
+        const prevNotifications = prevNotificationsRef.current;
+        if (notifications.length > prevNotifications.length) {
+            const newNotifications = notifications.slice(prevNotifications.length);
+            const hasImportant = newNotifications.some(n => n.isImportant);
+            
+            if (hasImportant) {
+                playSound('special');
+                playVibration('special');
+            }
+        }
+        prevNotificationsRef.current = notifications;
+    }, [notifications]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -254,7 +299,7 @@ function App() {
   };
 
   return (
-      <div className="text-slate-800">
+      <div className="text-slate-800" style={{ minWidth: '1280px' }}>
           {showWelcomeModal && currentUser && currentUser.profileComplete && <WelcomeModal user={currentUser} onClose={handleCloseWelcomeModal} />}
           <Routes>
             <Route path="/login" element={<LoginPage onLogin={handleLogin} settings={settings} currentUser={currentUser} />} />

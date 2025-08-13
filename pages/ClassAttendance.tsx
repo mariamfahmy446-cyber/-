@@ -17,7 +17,7 @@ interface AttendanceData {
 }
 
 const StatusButton: React.FC<{ text: string, icon: React.ElementType, onClick: () => void, isActive: boolean, activeClass: string, inactiveClass: string }> = ({ text, icon: Icon, onClick, isActive, activeClass, inactiveClass }) => (
-    <button onClick={onClick} className={`px-2.5 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-colors w-20 ${isActive ? activeClass : inactiveClass}`}>
+    <button onClick={onClick} className={`px-2.5 py-1.5 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-colors flex-1 ${isActive ? activeClass : inactiveClass}`}>
         <Icon className="w-4 h-4" />
         <span>{text}</span>
     </button>
@@ -256,20 +256,20 @@ const ClassAttendance: React.FC = () => {
     <div className="space-y-6">
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} appSettings={appState.settings} />}
         
-        <div className="relative flex justify-center items-center">
-            <div className="text-center">
-                <h1 className="text-2xl font-bold text-slate-900">تسجيل الحضور اليومي</h1>
-                <p className="text-slate-500">{activeClass.grade} - {activeClass.name}</p>
-            </div>
-            <div className="absolute left-0 flex items-center gap-2">
-                <button onClick={setAllAsPresent} className="btn btn-primary bg-green-600 hover:bg-green-700">
-                    <CheckIcon className="w-5 h-5"/>
-                    <span>تحديد الكل كـ "حاضر"</span>
-                </button>
-                <button onClick={handleBack} className="btn btn-secondary">
+        <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+                 <button onClick={handleBack} className="btn btn-secondary">
                     <ArrowLeftIcon className="w-4 h-4" />
                     <span>رجوع</span>
                 </button>
+                <button onClick={setAllAsPresent} className="btn btn-primary bg-green-600 hover:bg-green-700">
+                    <CheckIcon className="w-5 h-5"/>
+                    <span>تحديد الكل "حاضر"</span>
+                </button>
+            </div>
+            <div className="text-center sm:text-right">
+                <h1 className="text-2xl font-bold text-slate-900">تسجيل الحضور اليومي</h1>
+                <p className="text-slate-500">{activeClass.grade} - {activeClass.name}</p>
             </div>
         </div>
 

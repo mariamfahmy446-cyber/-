@@ -97,6 +97,7 @@ export interface Child {
 }
 
 export interface Settings {
+  churchName?: string;
   darkMode: boolean;
   schoolLogo?: string; // base64 string
   churchLogo?: string; // base64 string
@@ -195,6 +196,7 @@ export interface NotificationItem {
     read: boolean;
     icon: React.ElementType;
     targetUserId?: string;
+    isImportant?: boolean;
 }
 
 export interface AppState {
