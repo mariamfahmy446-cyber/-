@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نظام تسجيل بيانات الأطفال</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Marhey:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      /* Base Typography */
+      body {
+        font-family: 'Cairo', sans-serif;
+        font-size: 16px;
+        color: #374151; /* text-slate-700 */
+        line-height: 1.6;
+        background-color: #f8fafc; /* slate-50 */
+      }
+      
+      /* Form Styling */
+      .form-input, .form-select, .form-textarea {
+        border: 1px solid #d1d5db; /* border-slate-300 */
+        padding: 10px 12px;
+        border-radius: 8px;
+        width: 100%;
+        transition: all 0.2s ease-in-out;
+        background-color: #ffffff;
+      }
+      .form-input:focus, .form-select:focus, .form-textarea:focus {
+        border-color: #927dc8; 
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 3px rgba(146, 125, 200, 0.3);
+      }
+
+      /* Button System */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease-in-out;
+        text-decoration: none;
+        white-space: nowrap;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        transform: translateY(0);
+      }
+       .btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      }
+      .btn:active {
+        transform: translateY(0px);
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background-color: #927dc8;
+        color: white;
+      }
+      .btn-primary:hover:not(:disabled) {
+        background-color: #816db4; 
+      }
+
+      .btn-danger {
+        background-color: #dc2626; /* red-600 */
+        color: white;
+      }
+      .btn-danger:hover:not(:disabled) {
+        background-color: #b91c1c; /* red-700 */
+      }
+
+      .btn-secondary {
+          background-color: #e5e7eb; /* slate-200 */
+          color: #1f2937; /* slate-800 */
+      }
+      .btn-secondary:hover:not(:disabled) {
+          background-color: #d1d5db; /* slate-300 */
+      }
+      
+      /* Page Transitions */
+      @keyframes slide-in-right {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      .animate-slide-in-right {
+        animation: slide-in-right 0.5s ease-out forwards;
+      }
+
+      @keyframes slide-in-down {
+        from {
+          transform: translateY(-100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .animate-slide-in-down {
+        animation: slide-in-down 0.4s ease-out forwards;
+      }
+
+      @keyframes slide-out-up {
+          from {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+      }
+      .animate-slide-out-up {
+          animation: slide-out-up 0.4s ease-out forwards;
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+      }
+      
+      @keyframes fade-in-content {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+      }
+      .animate-fade-in-content {
+        animation: fade-in-content 0.4s ease-out forwards;
+      }
+
+      @keyframes grow-bar {
+          from { transform: scaleY(0); }
+          to { transform: scaleY(1); }
+      }
+      .animate-grow-bar {
+          animation: grow-bar 0.6s ease-out forwards;
+          transform-origin: bottom;
+      }
+      
+      @keyframes scale-in-center {
+        from {
+          transform: scale(0.95);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .animate-scale-in-center {
+        animation: scale-in-center 0.2s ease-out forwards;
+      }
+      
+      @keyframes scale-in-tl {
+        from {
+          transform: scale(0.95);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .animate-scale-in-tl {
+        animation: scale-in-tl 0.1s ease-out forwards;
+        transform-origin: top left;
+      }
+
+      /* Welcome Modal Violet Theme */
+      .violet-welcome-modal {
+        background: linear-gradient(135deg, #a99cd8 0%, #927dc8 100%);
+        border: 1px solid #816db4;
+        box-shadow: 0 10px 25px rgba(80, 64, 128, 0.2), 0 0 0 8px rgba(224, 220, 233, 0.7);
+        border-radius: 1rem;
+        font-family: 'Marhey', cursive;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+      }
+
+      .violet-welcome-modal .highlight-text {
+        color: #ede9f6;
+        font-weight: 700;
+      }
+
+      .violet-welcome-modal .quote-text {
+        border-top: 1px solid #b3a5e1;
+        border-bottom: 1px solid #b3a5e1;
+        padding: 0.75rem 0;
+        color: #ede9f6;
+      }
+
+      .violet-welcome-modal .action-button {
+        background-color: #ffffff;
+        color: #816db4;
+        border: 1px solid #c9c0e4;
+        box-shadow: 0 2px 0 #d9d3eb;
+        font-family: 'Cairo', sans-serif;
+        font-weight: 700;
+        border-radius: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .violet-welcome-modal .action-button:hover:not(:disabled) {
+        background-color: #f0ebf9;
+      }
+      
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.7.1",
+    "@google/genai": "https://esm.sh/@google/genai@^1.12.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
