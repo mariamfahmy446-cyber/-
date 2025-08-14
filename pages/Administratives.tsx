@@ -336,7 +336,12 @@ const UserEditForm: React.FC<{
     }, [user, appState.servants]);
 
     const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setUserForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        const { name, value } = e.target;
+        setUserForm(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'displayName') {
+            setServantForm(prev => prev ? ({ ...prev, name: value }) : undefined);
+        }
     };
 
     const handleServantChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -390,20 +395,29 @@ const UserEditForm: React.FC<{
                 <h3 className="font-bold text-lg text-slate-800">تعديل بيانات: {user.displayName}</h3>
                 <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-200 rounded-full"><XIcon className="w-5 h-5"/></button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField label="اسم العرض" name="displayName" value={userForm.displayName} onChange={handleUserChange} />
-                <InputField label="اسم المستخدم" name="username" value={userForm.username} onChange={handleUserChange} />
-                <InputField label="كلمة المرور الجديدة" name="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="اتركها فارغة لعدم التغيير" />
-                <InputField label="الرقم القومي" name="nationalId" value={userForm.nationalId || ''} onChange={handleUserChange} />
-                
-                {servantForm && (
-                    <>
-                        <InputField label="رقم الهاتف" name="phone" value={servantForm.phone} onChange={handleServantChange} />
-                        <div className="md:col-span-2">
-                             <ImageUploader label="تغيير الصورة" imageSrc={servantForm.image} onChange={handlePhotoChange} />
-                        </div>
-                    </>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                <div className="md:col-span-2 space-y-6">
+                    <InputField label="الاسم" name="displayName" value={userForm.displayName} onChange={handleUserChange} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <InputField label="اسم المستخدم" name="username" value={userForm.username} onChange={handleUserChange} />
+                        <InputField label="الرقم القومي" name="nationalId" value={userForm.nationalId || ''} onChange={handleUserChange} />
+                    </div>
+                    {servantForm && (
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <InputField label="رقم الهاتف" name="phone" value={servantForm.phone || ''} onChange={handleServantChange} />
+                                <InputField label="رقم هاتف اضافى" name="phone2" value={servantForm.phone2 || ''} onChange={handleServantChange} />
+                            </div>
+                            <InputField label="البريد الالكترونى" name="email" value={servantForm.email || ''} onChange={handleServantChange} />
+                        </>
+                    )}
+                     <InputField label="كلمة المرور الجديدة" name="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="اتركها فارغة لعدم التغيير" />
+                </div>
+                <div className="md:col-span-1">
+                     {servantForm && (
+                        <ImageUploader label="الصورة الشخصية" imageSrc={servantForm.image} onChange={handlePhotoChange} />
+                     )}
+                </div>
             </div>
             <div className="flex justify-end gap-3 pt-6 mt-4 border-t">
                 <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isSaving}>إلغاء</button>
