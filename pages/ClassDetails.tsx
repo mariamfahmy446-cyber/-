@@ -259,7 +259,7 @@ const ClassDetails: React.FC = () => {
             <div className="flex items-center gap-4">
                 {activeClass.logo ? <img src={activeClass.logo} alt={activeClass.name} className="w-20 h-20 object-contain rounded-lg bg-white p-1 shadow-sm border border-slate-200" /> : <div className="w-20 h-20 rounded-lg bg-slate-100 flex items-center justify-center"><UsersIcon className="w-10 h-10 text-slate-400"/></div>}
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">{`${activeClass.grade} - ${activeClass.name}`}</h1>
+                    <h1 className="text-3xl font-bold text-slate-800">{activeClass.name}</h1>
                     <p className="text-md text-slate-600 flex items-center gap-2 mt-1">
                         <UserIcon className="w-4 h-4 text-slate-500"/>المسؤول: 
                         <span className="font-semibold">{activeClass.supervisorName || 'غير محدد'}</span>

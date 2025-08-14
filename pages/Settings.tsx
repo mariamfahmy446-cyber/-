@@ -81,8 +81,10 @@ const GeneralSettings: React.FC<{appState: AppState, showNotification: (msg: str
     const { settings, setSettings, language, setLanguage } = appState;
 
     const handleToggleChange = (field: keyof Pick<Settings, 'enableSounds' | 'enableVibrations' | 'enablePopups' | 'darkMode'>) => {
-        const updatedSettings = {...settings, [field]: !settings[field]};
-        api.updateSettings(updatedSettings).then(() => {
+        api.updateSettings(prevSettings => ({
+            ...prevSettings,
+            [field]: !prevSettings[field]
+        })).then(() => {
             showNotification('تم حفظ الإعدادات تلقائياً.');
         });
     };

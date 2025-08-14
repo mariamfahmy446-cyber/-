@@ -156,7 +156,7 @@ const ServantProfilePage: React.FC = () => {
                                     <li key={c.id} className="bg-slate-50 p-3 rounded-lg flex justify-between items-center">
                                         <div>
                                             <p className="font-semibold text-slate-800">{c.levelName}</p>
-                                            <p className="text-sm text-slate-600">{c.grade} - {c.name}</p>
+                                            <p className="text-sm text-slate-600">{c.name}</p>
                                         </div>
                                         <Link to={`/app/class/${c.id}`} className="text-xs text-blue-600 hover:underline">
                                             عرض الفصل

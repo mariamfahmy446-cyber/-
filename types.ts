@@ -189,12 +189,14 @@ export interface User {
   levelIds?: string[];
 }
 
+export type NotificationIcon = 'login' | 'user-plus' | 'clipboard-check' | 'bell';
+
 export interface NotificationItem {
     id: number;
     text: string;
     time: string;
     read: boolean;
-    icon: React.ElementType;
+    icon: NotificationIcon;
     targetUserId?: string;
     isImportant?: boolean;
 }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { AppState } from '../types';
 import type { Hymn } from '../types';
-import { PlusIcon, EditIcon, TrashIcon, YouTubeIcon, DownloadIcon, MusicIcon, XIcon, FileTextIcon, ChevronDownIcon, QrCodeIcon, ArrowLeftIcon } from '../components/Icons';
+import { PlusIcon, EditIcon, TrashIcon, YouTubeIcon, DownloadIcon, MusicIcon, XIcon, FileTextIcon, ChevronDownIcon, QrCodeIcon, ArrowLeftIcon, SearchIcon } from '../components/Icons';
 import Notification from '../components/Notification';
 import { api } from '../services/api';
 
@@ -124,13 +124,30 @@ const HymnsPage: React.FC = () => {
     const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterLetter, setFilterLetter] = useState('');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    const arabicAlphabet = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('');
 
     const isSiteAdmin = useMemo(() => {
         if (!currentUser) return false;
         return currentUser.roles.includes('general_secretary') && currentUser.nationalId === '29908241301363';
     }, [currentUser]);
+    
+    const filteredHymns = useMemo(() => {
+        return hymns
+            .filter(hymn => {
+                if (!filterLetter) return true;
+                return hymn.title.trim().startsWith(filterLetter);
+            })
+            .filter(hymn => {
+                if (!searchTerm.trim()) return true;
+                return hymn.title.trim().toLowerCase().includes(searchTerm.trim().toLowerCase());
+            })
+            .sort((a, b) => a.title.localeCompare(b.title, 'ar'));
+    }, [hymns, searchTerm, filterLetter]);
 
 
     const handleBack = () => {
@@ -322,7 +339,47 @@ const HymnsPage: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-2 space-y-4">
-                    {hymns.length > 0 ? hymns.map(hymn => (
+                    <div className="bg-white rounded-xl shadow-md p-4 sticky top-[5.5rem] z-10 border">
+                        <div className="relative mb-4">
+                            <input
+                                type="text"
+                                placeholder="ابحث عن اسم الترنيمة..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setFilterLetter('');
+                                }}
+                                className="form-input w-full pl-10"
+                            />
+                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            <button
+                                onClick={() => { setFilterLetter(''); setSearchTerm(''); }}
+                                className={`px-3 py-1 text-sm rounded-full font-semibold transition-colors ${
+                                    !filterLetter ? 'bg-violet-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                }`}
+                            >
+                                الكل
+                            </button>
+                            {arabicAlphabet.map(letter => (
+                                <button
+                                    key={letter}
+                                    onClick={() => {
+                                        setFilterLetter(letter);
+                                        setSearchTerm('');
+                                    }}
+                                    className={`px-3 py-1 text-sm rounded-full font-semibold transition-colors ${
+                                        filterLetter === letter ? 'bg-violet-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                    }`}
+                                >
+                                    {letter}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {filteredHymns.length > 0 ? filteredHymns.map(hymn => (
                         <div key={hymn.id} className="bg-white rounded-xl shadow-md p-4 transition-all duration-300">
                            <div className="flex justify-between items-start gap-2">
                                 <div>
@@ -399,8 +456,12 @@ const HymnsPage: React.FC = () => {
                     )) : (
                         <div className="text-center py-16 text-slate-500 bg-white rounded-lg col-span-full">
                             <MusicIcon className="w-16 h-16 mx-auto text-slate-300" />
-                            <p className="mt-4 font-semibold">لا توجد ترانيم مضافة بعد.</p>
-                            <p className="text-sm">استخدم النموذج لإضافة أول ترنيمة.</p>
+                            <p className="mt-4 font-semibold">
+                                {hymns.length > 0 ? 'لم يتم العثور على ترانيم تطابق البحث.' : 'لا توجد ترانيم مضافة بعد.'}
+                            </p>
+                            <p className="text-sm">
+                                {hymns.length > 0 ? 'جرّب كلمة بحث مختلفة أو فلتر حرف آخر.' : 'استخدم النموذج لإضافة أول ترنيمة.'}
+                            </p>
                         </div>
                     )}
                 </div>

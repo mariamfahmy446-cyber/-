@@ -134,6 +134,17 @@ function App() {
   
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser_v3', null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Show welcome modal after profile completion, triggered by navigation state.
+    if (location.state?.showWelcome) {
+        setShowWelcomeModal(true);
+        // Clean up the state to prevent re-showing on refresh or back navigation.
+        navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   useEffect(() => {
     api.initApi({
@@ -179,7 +190,7 @@ function App() {
             text: `قام المستخدم "${user.displayName}" بتسجيل الدخول.`,
             time: new Date().toLocaleTimeString('ar-EG'),
             read: false,
-            icon: LogInIcon,
+            icon: 'login',
             targetUserId: siteAdmin.id,
         };
         setNotifications(prev => [newNotification, ...prev]);
@@ -207,7 +218,7 @@ function App() {
                 text: `تنبيه: محاولة تسجيل مستخدم برقم قومي مُسجل بالفعل (${nationalId}).`,
                 time: new Date().toLocaleTimeString('ar-EG'),
                 read: false,
-                icon: UserPlusIcon,
+                icon: 'user-plus',
                 targetUserId: generalSecretary.id,
             };
             setNotifications(prev => [newNotification, ...prev]);
@@ -239,7 +250,6 @@ function App() {
     };
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
-    setShowWelcomeModal(true);
     return { success: true, message: 'تم التسجيل بنجاح!' };
   };
 
@@ -313,7 +323,7 @@ function App() {
 
   return (
       <div className="text-slate-800" style={{ minWidth: '1280px' }}>
-          {showWelcomeModal && currentUser && currentUser.profileComplete && <WelcomeModal user={currentUser} onClose={handleCloseWelcomeModal} />}
+          {showWelcomeModal && currentUser && <WelcomeModal user={currentUser} onClose={handleCloseWelcomeModal} />}
           <Routes>
             <Route path="/login" element={<LoginPage onLogin={handleLogin} settings={settings} currentUser={currentUser} />} />
             <Route path="/register" element={<RegisterPage onRegister={handleRegister} settings={settings} />} />

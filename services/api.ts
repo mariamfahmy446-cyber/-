@@ -168,11 +168,10 @@ export const api = {
     },
 
     // Settings
-    updateSettings: async (updatedSettings: Settings): Promise<Settings> => {
+    updateSettings: async (updateAction: React.SetStateAction<Settings>): Promise<void> => {
         if (!setters?.setSettings) throw new Error("API not initialized for Settings");
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setters.setSettings(updatedSettings);
-        return updatedSettings;
+        await new Promise(resolve => setTimeout(resolve, 50));
+        setters.setSettings(updateAction);
     },
 
     // Hymns

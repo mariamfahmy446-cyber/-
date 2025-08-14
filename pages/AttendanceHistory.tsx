@@ -103,7 +103,7 @@ const AttendanceHistory: React.FC = () => {
             >
                 {classes.length > 0 ? (
                     classes.map(c => (
-                        <option key={c.id} value={c.id}>{c.grade} - {c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                     ))
                 ) : (
                     <option disabled>لا توجد فصول</option>

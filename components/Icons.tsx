@@ -1,4 +1,5 @@
 import React from 'react';
+import type { NotificationIcon } from '../types';
 
 export const PlusIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -343,3 +344,18 @@ export const CameraIcon = ({ className }: { className?: string }) => (
         <circle cx="12" cy="13" r="4"></circle>
     </svg>
 );
+
+export const NotificationIconComponent: React.FC<{ icon: NotificationIcon; className?: string }> = ({ icon, className }) => {
+    switch (icon) {
+        case 'login':
+            return <LogInIcon className={className} />;
+        case 'user-plus':
+            return <UserPlusIcon className={className} />;
+        case 'clipboard-check':
+            return <ClipboardCheckIcon className={className} />;
+        case 'bell':
+            return <BellIcon className={className} />;
+        default:
+            return <BellIcon className={className} />; // Fallback icon
+    }
+};

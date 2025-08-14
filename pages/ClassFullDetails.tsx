@@ -52,7 +52,7 @@ const ClassFullDetails: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">تفاصيل فصل: {activeClass.grade} - {activeClass.name}</h1>
+          <h1 className="text-3xl font-bold text-slate-900">تفاصيل فصل: {activeClass.name}</h1>
           <p className="text-slate-500 mt-1">المرحلة: {level.name}</p>
         </div>
         <button onClick={handleBack} className="btn btn-secondary">

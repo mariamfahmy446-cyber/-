@@ -88,7 +88,7 @@ PRIMARY_GRADES.forEach((grade, index) => {
         id: `class-primary-${index + 1}-boys`,
         level_id: 'level-primary',
         grade: grade,
-        name: `${grade}`,
+        name: `${grade} بنين`,
         supervisorName: '',
         servantNames: [],
     });
@@ -97,7 +97,7 @@ PRIMARY_GRADES.forEach((grade, index) => {
         id: `class-primary-${index + 1}-girls`,
         level_id: 'level-primary',
         grade: grade,
-        name: `${grade}`,
+        name: `${grade} بنات`,
         supervisorName: '',
         servantNames: [],
     });

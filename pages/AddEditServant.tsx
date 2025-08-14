@@ -196,7 +196,7 @@ const AddEditServant: React.FC = () => {
 
     setTimeout(() => {
         if (wasProfileCompletion) {
-            navigate('/app/dashboard', { replace: true });
+            navigate('/app/dashboard', { replace: true, state: { showWelcome: true } });
         } else {
             handleBack();
         }

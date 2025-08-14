@@ -74,7 +74,7 @@ const ChildCardPage: React.FC = () => {
             <div>
                  <h1 className="text-3xl font-bold text-slate-900">كارت الطفل: {child.name}</h1>
                  <p className="text-slate-500 mt-1">
-                    فصل: {activeClass.grade} - {activeClass.name}
+                    فصل: {activeClass.name}
                  </p>
             </div>
             <div className="flex items-center gap-3">

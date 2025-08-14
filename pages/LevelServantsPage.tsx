@@ -35,7 +35,7 @@ const LevelServantsPage: React.FC = () => {
         const allServantsData: ServantDisplayInfo[] = [];
 
         levelClasses.forEach(cls => {
-            const classDesc = `${cls.grade} - ${cls.name}`;
+            const classDesc = cls.name;
             if (cls.supervisorName && cls.supervisorName.trim()) {
                 allServantsData.push({
                     name: cls.supervisorName.trim(),

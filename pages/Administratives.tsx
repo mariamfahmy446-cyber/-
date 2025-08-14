@@ -6,6 +6,7 @@ import {
     UserIcon, BellIcon, ImageIcon, UsersIcon, XIcon, BookOpenIcon, UserPlusIcon, ArrowLeftIcon, PhoneIcon, RoseIcon
 } from '../components/Icons';
 import Notification from '../components/Notification';
+import { api } from '../services/api';
 
 
 interface OutletContextType {
@@ -273,6 +274,145 @@ const QuickActions: React.FC<{
       </div>
     </div>
   );
+};
+
+const InputField: React.FC<{label: string, name: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>)=>void, required?: boolean, placeholder?: string}> = ({label, name, value, onChange, required, placeholder}) => (
+    <div className="w-full">
+        <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}{required && <span className="text-red-500">*</span>}</label>
+        <input
+            type="text"
+            id={name}
+            name={name}
+            value={value}
+            onChange={onChange}
+            required={required}
+            className="form-input"
+            placeholder={placeholder}
+        />
+    </div>
+);
+
+const ImageUploader: React.FC<{label: string, imageSrc?: string, onChange: (e: React.ChangeEvent<HTMLInputElement>)=>void}> = ({label, imageSrc, onChange}) => (
+  <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <div className="flex items-center gap-4">
+        <div className="w-24 h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+        {imageSrc ? (
+            <img src={imageSrc} alt={label} className="w-full h-full object-contain" />
+        ) : (
+            <ImageIcon className="w-10 h-10 text-slate-400" />
+        )}
+        </div>
+        <div>
+        <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm transition-colors">
+            {imageSrc ? `تغيير الصورة` : `رفع صورة`}
+            <input type="file" onChange={onChange} accept="image/*" className="hidden" />
+        </label>
+        </div>
+    </div>
+  </div>
+);
+
+const UserEditForm: React.FC<{
+    editingState: { user: User, section: string };
+    onClose: () => void;
+    showNotification: (msg: string, type?: NotificationType['type']) => void;
+    appState: AppState;
+}> = ({ editingState, onClose, showNotification, appState }) => {
+    const { user } = editingState;
+
+    const associatedServant = useMemo(() => {
+        return appState.servants.find(s => s.id === user.servantId);
+    }, [appState.servants, user.servantId]);
+
+    const [userForm, setUserForm] = useState(user);
+    const [servantForm, setServantForm] = useState(associatedServant);
+    const [newPassword, setNewPassword] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setUserForm(user);
+        setServantForm(appState.servants.find(s => s.id === user.servantId));
+    }, [user, appState.servants]);
+
+    const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setUserForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleServantChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!servantForm) return;
+        setServantForm(prev => prev ? ({ ...prev, [e.target.name]: e.target.value }) : undefined);
+    };
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!servantForm) return;
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64String = reader.result as string;
+            setServantForm(prev => prev ? ({ ...prev, image: base64String }) : undefined);
+          };
+          reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const userUpdateData: Partial<User> = {
+                displayName: userForm.displayName,
+                username: userForm.username,
+                nationalId: userForm.nationalId,
+            };
+            if (newPassword.trim()) {
+                userUpdateData.password = newPassword.trim();
+            }
+
+            await api.updateUser(user.id, userUpdateData);
+
+            if (servantForm) {
+                await api.updateServant(servantForm.id, servantForm);
+            }
+            showNotification('تم تحديث البيانات بنجاح.', 'success');
+            onClose();
+        } catch (error) {
+            console.error(error);
+            showNotification('فشل تحديث البيانات.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="mt-4 bg-violet-50 p-6 rounded-xl border-2 border-violet-200 border-dashed animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-lg text-slate-800">تعديل بيانات: {user.displayName}</h3>
+                <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-200 rounded-full"><XIcon className="w-5 h-5"/></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InputField label="اسم العرض" name="displayName" value={userForm.displayName} onChange={handleUserChange} />
+                <InputField label="اسم المستخدم" name="username" value={userForm.username} onChange={handleUserChange} />
+                <InputField label="كلمة المرور الجديدة" name="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="اتركها فارغة لعدم التغيير" />
+                <InputField label="الرقم القومي" name="nationalId" value={userForm.nationalId || ''} onChange={handleUserChange} />
+                
+                {servantForm && (
+                    <>
+                        <InputField label="رقم الهاتف" name="phone" value={servantForm.phone} onChange={handleServantChange} />
+                        <div className="md:col-span-2">
+                             <ImageUploader label="تغيير الصورة" imageSrc={servantForm.image} onChange={handlePhotoChange} />
+                        </div>
+                    </>
+                )}
+            </div>
+            <div className="flex justify-end gap-3 pt-6 mt-4 border-t">
+                <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isSaving}>إلغاء</button>
+                <button type="button" onClick={handleSave} className="btn btn-primary" disabled={isSaving}>
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                </button>
+            </div>
+        </div>
+    );
 };
 
 
@@ -582,8 +722,11 @@ const CollapsibleLevelItem: React.FC<{
     );
 };
 
-const PriestCard: React.FC<{ user: User, servant?: Servant }> = ({ user, servant }) => (
-    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center text-center w-44 border border-slate-200">
+const PriestCard: React.FC<{ user: User; servant?: Servant; onEdit: (user: User) => void }> = ({ user, servant, onEdit }) => (
+    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center text-center w-44 border border-slate-200 relative">
+        <button onClick={() => onEdit(user)} className="absolute top-2 right-2 p-1 text-violet-500 hover:bg-violet-100 rounded-full" title="تعديل">
+            <EditIcon className="w-4 h-4"/>
+        </button>
         <img 
             src={servant?.image || `https://i.pravatar.cc/150?u=${user.id}`} 
             alt={user.displayName}
@@ -611,11 +754,12 @@ const UserRoleSection: React.FC<{
   users: User[];
   servants: Servant[];
   currentUser: User;
-  onEdit: (user: User) => void;
+  onEdit: (user: User, section: string) => void;
   onDelete: (userId: string) => void;
   hideDelete?: boolean;
   isEditDisabled?: (user: User) => boolean;
-}> = ({ title, users, servants, currentUser, onEdit, onDelete, hideDelete, isEditDisabled }) => {
+  sectionKey: string;
+}> = ({ title, users, servants, currentUser, onEdit, onDelete, hideDelete, isEditDisabled, sectionKey }) => {
     
     if (title === 'الأباء الكهنة') {
         return (
@@ -625,7 +769,7 @@ const UserRoleSection: React.FC<{
                     <div className="flex flex-wrap gap-4 justify-center pt-4">
                         {users.map(user => {
                             const servant = servants.find(s => s.id === user.servantId);
-                            return <PriestCard key={user.id} user={user} servant={servant} />;
+                            return <PriestCard key={user.id} user={user} servant={servant} onEdit={(u) => onEdit(u, sectionKey)} />;
                         })}
                     </div>
                 ) : (
@@ -665,7 +809,7 @@ const UserRoleSection: React.FC<{
                                     <td className="p-3 text-slate-600 font-mono">@{user.username}</td>
                                     <td className="p-3">
                                         <div className="flex gap-2 justify-center">
-                                            <button onClick={() => onEdit(user)} className="p-2 text-violet-500 hover:bg-violet-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="تعديل" disabled={isEditDisabled?.(user)}><EditIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => onEdit(user, sectionKey)} className="p-2 text-violet-500 hover:bg-violet-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="تعديل" disabled={isEditDisabled?.(user)}><EditIcon className="w-5 h-5"/></button>
                                             {!hideDelete && (
                                                 <button onClick={() => onDelete(user.id)} disabled={user.id === currentUser.id} className="p-2 text-red-500 hover:bg-red-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed" title="حذف"><TrashIcon className="w-5 h-5"/></button>
                                             )}
@@ -685,33 +829,24 @@ const UserRoleSection: React.FC<{
 
 
 const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: string, type?: NotificationType['type']) => void, addUserFormRef: React.RefObject<HTMLDivElement>}> = ({ appState, showNotification, addUserFormRef }) => {
-    const { users, setUsers, currentUser, servants, setServants, settings, setSettings, setNotifications } = appState;
+    const { users, setUsers, currentUser, servants, setServants, settings, setNotifications } = appState;
 
     const SUPER_ADMIN_NATIONAL_ID = '29908241301363';
-
-    const getInitialUserFormState = () => ({ id: '', displayName: '', username: '', password: '', roles: ['servant'] as UserRole[], servantId: '', levelIds: [] as string[], nationalId: '' });
-    const [userForm, setUserForm] = useState(getInitialUserFormState());
-    const [editingUser, setEditingUser] = useState<User | null>(null);
+    
+    const [editingState, setEditingState] = useState<{ user: User, section: string } | null>(null);
+    
     const [notificationMessage, setNotificationMessage] = useState('');
     const [isSendingNotification, setIsSendingNotification] = useState(false);
-    const formRef = React.useRef<HTMLDivElement>(null);
-
+    
     const isPriest = useMemo(() => currentUser?.roles.includes('priest') && !currentUser?.roles.includes('general_secretary'), [currentUser]);
 
-    const [newUserForm, setNewUserForm] = useState({
-        displayName: '',
-        nationalId: '',
-        password: '',
-        role: 'servant' as UserRole,
-    });
-    
     const handleChurchLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64String = reader.result as string;
-            setSettings(prev => ({ ...prev, churchLogo: base64String }));
+            api.updateSettings(prev => ({ ...prev, churchLogo: base64String }));
             showNotification('تم تحديث الشعار بنجاح.');
           };
           reader.readAsDataURL(file);
@@ -730,96 +865,13 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
             </div>
         );
     }
-
-    const handleUserFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        if (name === 'nationalId') {
-            const numericValue = value.replace(/\D/g, '');
-            if (numericValue.length <= 14) {
-                setUserForm(prev => ({ ...prev, [name]: numericValue }));
-            }
-        } else {
-            setUserForm(prev => ({ ...prev, [name]: value }));
-        }
-    };
-
-    const handleRolesChange = (role: UserRole, isChecked: boolean) => {
-        setUserForm(prev => {
-            const currentRoles = new Set<UserRole>(prev.roles || []);
-            if (isChecked) {
-                if (isPriest && role === 'general_secretary') {
-                    showNotification('غير مصرح لك بإضافة مديرين.', 'error');
-                    return prev;
-                }
-                currentRoles.add(role);
-            } else {
-                if (role === 'general_secretary' && prev.id === currentUser?.id) {
-                    showNotification('لا يمكن إزالة دور المدير العام.', 'error');
-                    return prev;
-                }
-                if (currentRoles.size <= 1) {
-                    showNotification('يجب أن يكون للمستخدم دور واحد على الأقل.', 'error');
-                    return prev;
-                }
-                currentRoles.delete(role);
-            }
-            return { ...prev, roles: Array.from(currentRoles) };
-        });
-    };
-
-    const handleEditUser = (user: User) => {
-        setEditingUser(user);
-        setUserForm({ ...user, password: '', roles: user.roles || [], servantId: user.servantId || '', levelIds: user.levelIds || [], nationalId: user.nationalId || '' });
-        setTimeout(() => {
-            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+    
+    const handleEditUser = (user: User, section: string) => {
+        setEditingState({ user, section });
     };
 
     const handleCancelEdit = () => {
-        setEditingUser(null);
-        setUserForm(getInitialUserFormState());
-    };
-
-    const handleSaveUser = () => {
-        if (!userForm.displayName || !userForm.username) {
-            showNotification('يرجى ملء الاسم كامل ثلاثى واسم المستخدم.', 'error');
-            return;
-        }
-        
-        if (userForm.nationalId && userForm.nationalId.length > 0 && userForm.nationalId.length !== 14) {
-            showNotification('الرقم القومي يجب أن يتكون من 14 رقمًا.', 'error');
-            return;
-        }
-
-        const finalUserForm = {
-            ...userForm,
-            roles: userForm.roles.length > 0 ? userForm.roles : (['servant'] as UserRole[]),
-            levelIds: userForm.levelIds?.filter(id => id) || []
-        };
-
-        if (editingUser) {
-            // Editing user
-            if (users.some(u => u.username === userForm.username && u.id !== editingUser.id)) {
-                showNotification('اسم المستخدم هذا موجود بالفعل.', 'error');
-                return;
-            }
-            setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...finalUserForm, password: userForm.password || u.password } : u));
-            showNotification('تم تعديل المستخدم بنجاح.');
-        } else {
-            // Adding new user
-            if (!userForm.password) {
-                showNotification('يرجى إدخال كلمة مرور للمستخدم الجديد.', 'error');
-                return;
-            }
-            if (users.some(u => u.username === userForm.username)) {
-                showNotification('اسم المستخدم هذا موجود بالفعل.', 'error');
-                return;
-            }
-            const newUser: User = { ...finalUserForm, id: Date.now().toString() };
-            setUsers(prev => [...prev, newUser]);
-            showNotification('تمت إضافة المستخدم بنجاح.');
-        }
-        handleCancelEdit();
+        setEditingState(null);
     };
 
     const handleDeleteUser = (userId: string) => {
@@ -852,7 +904,7 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
             text: notificationMessage,
             time: 'الآن',
             read: false,
-            icon: BellIcon,
+            icon: 'bell',
             isImportant: true,
         };
         
@@ -883,11 +935,6 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
     const classSupervisors = users.filter(u => u.roles.includes('class_supervisor') && !higherRoles.some(r => r !== 'class_supervisor' && u.roles.includes(r)));
     const servantsOnly = users.filter(u => u.roles.includes('servant') && !u.roles.includes('class_supervisor') && !higherRoles.some(r => r !== 'servant' && u.roles.includes(r)));
 
-
-    const isEditDisabled = (user: User) => {
-        return isPriest && user.roles.includes('general_secretary');
-    };
-    
     return (
         <div className="space-y-6">
             <SettingsSection title="بيانات الكنيسة" icon={ImageIcon}>
@@ -938,8 +985,11 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={isEditDisabled}
+                isEditDisabled={(user) => isPriest}
+                sectionKey="priests"
             />
+            {editingState?.section === 'priests' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
+
              <UserRoleSection
                 title={roleTranslations.general_secretary}
                 users={generalSecretary}
@@ -947,9 +997,12 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={(user) => user.nationalId === SUPER_ADMIN_NATIONAL_ID && isPriest}
+                isEditDisabled={(user) => user.id !== currentUser.id}
                 hideDelete
+                sectionKey="manager"
             />
+            {editingState?.section === 'manager' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
+            
              <UserRoleSection
                 title="امناء الخدمة"
                 users={secretaries}
@@ -957,8 +1010,11 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={isEditDisabled}
+                isEditDisabled={(user) => isPriest}
+                sectionKey="secretaries"
             />
+             {editingState?.section === 'secretaries' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
+
             <UserRoleSection
                 title={roleTranslations.level_secretary}
                 users={levelSecretaries}
@@ -966,8 +1022,11 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={isEditDisabled}
+                isEditDisabled={(user) => isPriest}
+                sectionKey="level_secretaries"
             />
+             {editingState?.section === 'level_secretaries' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
+             
              <UserRoleSection
                 title={roleTranslations.class_supervisor}
                 users={classSupervisors}
@@ -975,8 +1034,11 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={isEditDisabled}
+                isEditDisabled={(user) => isPriest}
+                sectionKey="supervisors"
             />
+            {editingState?.section === 'supervisors' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
+
              <UserRoleSection
                 title={roleTranslations.servant}
                 users={servantsOnly}
@@ -984,8 +1046,10 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={isEditDisabled}
+                isEditDisabled={(user) => isPriest}
+                sectionKey="servants"
             />
+            {editingState?.section === 'servants' && <UserEditForm editingState={editingState} onClose={handleCancelEdit} showNotification={showNotification} appState={appState} />}
         </div>
     );
 }

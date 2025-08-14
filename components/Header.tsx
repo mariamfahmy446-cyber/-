@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Settings, NotificationItem, User, UserRole } from '../types';
-import { ArrowLeftIcon, HomeIcon, BellIcon, LogOutIcon, CheckIcon, XIcon, UserIcon } from './Icons';
+import { ArrowLeftIcon, HomeIcon, BellIcon, LogOutIcon, CheckIcon, XIcon, UserIcon, NotificationIconComponent } from './Icons';
 import { kidsLogoBase64 } from '../assets';
 
 interface HeaderProps {
@@ -66,6 +66,7 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
   const location = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [viewingNotification, setViewingNotification] = useState<NotificationItem | null>(null);
 
   const visibleNotifications = useMemo(() => {
     if (!currentUser) return [];
@@ -80,9 +81,12 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
     onLogout();
   }
 
-  const handleMarkAsRead = (id: number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  }
+  const handleViewNotification = (notification: NotificationItem) => {
+    setViewingNotification(notification);
+    // Also mark as read when viewed
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+    setNotificationsOpen(false); // Close the dropdown
+  };
   
   const handleMarkAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -113,6 +117,7 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
   }
 
   return (
+    <>
     <header style={{ backgroundColor: '#927dc8' }} className="text-white shadow-md p-3 flex justify-between items-center sticky top-0 z-20 h-16">
       <div className="flex items-center gap-2">
          <Link to="/app" className="p-2 rounded-full transition-colors hover:bg-white/20" aria-label={t('mainMenu')}>
@@ -166,16 +171,15 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
                     <div className="flex-1 overflow-y-auto">
                       {visibleNotifications.length > 0 ? (
                         visibleNotifications.map(n => {
-                          const Icon = n.icon;
                           return (
                             <div
                               key={n.id}
                               className="p-4 hover:bg-slate-50 border-b last:border-b-0 flex items-start gap-4 cursor-pointer"
-                              onClick={() => handleMarkAsRead(n.id)}
+                              onClick={() => handleViewNotification(n)}
                             >
                               {!n.read && <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 shrink-0"></div>}
                               <div className={`p-2.5 rounded-full ${n.read ? 'bg-slate-100' : 'bg-blue-100'}`}>
-                                <Icon className={`w-6 h-6 ${n.read ? 'text-slate-500' : 'text-blue-600'}`} />
+                                <NotificationIconComponent icon={n.icon} className={`w-6 h-6 ${n.read ? 'text-slate-500' : 'text-blue-600'}`} />
                               </div>
                               <div className="flex-grow">
                                 <p className={`text-base leading-relaxed ${!n.read ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{n.text}</p>
@@ -262,7 +266,48 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
         </div>
       </nav>
     </header>
+    {viewingNotification && (
+        <NotificationModal notification={viewingNotification} onClose={() => setViewingNotification(null)} />
+    )}
+    </>
   );
+};
+
+const NotificationModal: React.FC<{ notification: NotificationItem; onClose: () => void; }> = ({ notification, onClose }) => {
+    return (
+        <div 
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div 
+                className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-scale-in-center text-slate-800"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 rounded-full shrink-0">
+                         <NotificationIconComponent icon={notification.icon} className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <div className="flex-grow">
+                        <h2 className="text-lg font-bold text-slate-800">تفاصيل الإشعار</h2>
+                        <p className="text-sm text-slate-500">{notification.time}</p>
+                    </div>
+                     <button onClick={onClose} className="ml-auto p-2 text-slate-500 hover:bg-slate-100 rounded-full">
+                        <XIcon className="w-5 h-5"/>
+                    </button>
+                </div>
+                <div className="py-4 border-t border-b border-slate-200">
+                     <p className="text-slate-700 text-base leading-relaxed">{notification.text}</p>
+                </div>
+                <div className="text-center">
+                    <button onClick={onClose} className="btn btn-primary">
+                        إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default Header;

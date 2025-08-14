@@ -21,11 +21,34 @@ const SchedulePage: React.FC = () => {
   }, [selectedLevelId, levels]);
   
   const specialLevels = ['level-nursery', 'level-university', 'level-graduates'];
+  const isPrepOrSecondary = useMemo(() => ['level-preparatory', 'level-secondary'].includes(selectedLevel?.id || ''), [selectedLevel]);
 
   const groupedClasses = useMemo(() => {
     if (!selectedLevel) return {};
 
     const levelClasses = classes.filter(c => c.level_id === selectedLevel.id);
+
+    if (isPrepOrSecondary) {
+        const groups: { 'بنين'?: Class[], 'بنات'?: Class[] } = {};
+        levelClasses.forEach(cls => {
+            if (cls.name.includes('بنين')) {
+                if (!groups['بنين']) groups['بنين'] = [];
+                groups['بنين'].push(cls);
+            } else if (cls.name.includes('بنات')) {
+                if (!groups['بنات']) groups['بنات'] = [];
+                groups['بنات'].push(cls);
+            }
+        });
+
+        const gradeOrder = selectedLevel.id === 'level-preparatory' 
+          ? ['اولى اعدادى', 'ثانية اعدادى', 'ثالثة اعدادى']
+          : ['اولى ثانوى', 'ثانية ثانوى', 'ثالثة ثانوى'];
+        
+        if (groups['بنين']) groups['بنين'].sort((a, b) => gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade));
+        if (groups['بنات']) groups['بنات'].sort((a, b) => gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade));
+        
+        return groups;
+    }
     
     const groups = levelClasses.reduce((acc: Record<string, Class[]>, cls) => {
       const grade = cls.grade || 'بدون صف';
@@ -50,11 +73,15 @@ const SchedulePage: React.FC = () => {
     });
 
     return groups;
-  }, [selectedLevel, classes]);
+  }, [selectedLevel, classes, isPrepOrSecondary]);
 
   const gradeOrder = useMemo(() => {
     if (!selectedLevel) return [];
     
+    if (isPrepOrSecondary) {
+        return ['بنين', 'بنات'].filter(g => groupedClasses[g as 'بنين' | 'بنات'] && groupedClasses[g as 'بنين' | 'بنات']!.length > 0);
+    }
+
     const isPrimaryStage = selectedLevel.name === 'المرحلة الابتدائية';
     const primaryGradeOrder = ['الصف الاول', 'الصف الثانى', 'الصف الثالث', 'الصف الرابع', 'الصف الخامس', 'الصف السادس'];
 
@@ -76,7 +103,7 @@ const SchedulePage: React.FC = () => {
     }
 
     return groupKeys.sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [groupedClasses, selectedLevel]);
+  }, [groupedClasses, selectedLevel, isPrepOrSecondary]);
 
   const isPrimaryStage = selectedLevel?.name === 'المرحلة الابتدائية';
 
@@ -164,8 +191,8 @@ const SchedulePage: React.FC = () => {
                     <div className={`grid grid-cols-1 ${isPrimaryStage ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-4`}>
                         {isPrimaryStage ? (
                             (() => {
-                                const boysClass = groupedClasses[grade].find(c => c.id.includes('boys'));
-                                const girlsClass = groupedClasses[grade].find(c => c.id.includes('girls'));
+                                const boysClass = groupedClasses[grade]?.find(c => c.id.includes('boys'));
+                                const girlsClass = groupedClasses[grade]?.find(c => c.id.includes('girls'));
                                 
                                 const renderClassLink = (cls: Class | undefined, gender: 'بنين' | 'بنات') => {
                                     if (!cls) return null;
@@ -194,7 +221,7 @@ const SchedulePage: React.FC = () => {
                                 );
                             })()
                         ) : (
-                            groupedClasses[grade].map(cls => (
+                            (groupedClasses[grade as keyof typeof groupedClasses] || []).map(cls => (
                                 <Link 
                                     to={`/app/schedule/class/${cls.id}`} 
                                     key={cls.id}

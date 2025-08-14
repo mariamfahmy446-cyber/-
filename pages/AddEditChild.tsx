@@ -103,7 +103,7 @@ const CameraCaptureModal: React.FC<{
 
 const AddEditChild: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { children, classes, currentUser } = appState;
+  const { children, classes, levels, currentUser } = appState;
   const { childId, classId } = useParams();
   const navigate = useNavigate();
   const isEditMode = childId !== undefined;
@@ -241,7 +241,7 @@ const AddEditChild: React.FC = () => {
         
         <div className="text-center">
             {currentClass && <p className="text-slate-600 mt-1 mb-4">
-                الفصل: {`${currentClass.grade} - ${currentClass.name}`}
+                الفصل: {currentClass.name}
             </p>}
              <input
                 type="text"
@@ -300,8 +300,16 @@ const AddEditChild: React.FC = () => {
                             className="form-select"
                         >
                             <option value="" disabled>-- يرجى اختيار فصل --</option>
-                            {classes.map(c => (
-                                <option key={c.id} value={c.id}>{c.grade} - {c.name}</option>
+                             {levels.map(level => (
+                                <optgroup key={level.id} label={level.name}>
+                                    {classes
+                                        .filter(c => c.level_id === level.id)
+                                        .sort((a,b) => a.name.localeCompare(b.name, 'ar'))
+                                        .map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))
+                                    }
+                                </optgroup>
                             ))}
                         </select>
                     </div>

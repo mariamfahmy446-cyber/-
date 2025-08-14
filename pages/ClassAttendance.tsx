@@ -207,7 +207,7 @@ const ClassAttendance: React.FC = () => {
             text: `تم تسجيل حضور فصل "${activeClassForNotif.name}" بتاريخ ${new Date(selectedDate).toLocaleDateString('ar-EG', { timeZone: 'UTC' })}.`,
             time: 'الآن',
             read: false,
-            icon: ClipboardCheckIcon,
+            icon: 'clipboard-check',
             targetUserId: user.id
         }));
         
@@ -270,7 +270,7 @@ const ClassAttendance: React.FC = () => {
             </div>
             <div className="text-center sm:text-right">
                 <h1 className="text-2xl font-bold text-slate-900">تسجيل الحضور اليومي</h1>
-                <p className="text-slate-500">{activeClass.grade} - {activeClass.name}</p>
+                <p className="text-slate-500">{activeClass.name}</p>
             </div>
         </div>
 

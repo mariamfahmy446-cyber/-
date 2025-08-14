@@ -120,7 +120,7 @@ const ChildrenCardsPage: React.FC = () => {
             <div>
                  <h1 className="text-3xl font-bold text-slate-900">طباعة كروت الأطفال</h1>
                  <p className="text-slate-500 mt-1">
-                    فصل: {activeClass.grade} - {activeClass.name} ({classChildren.length} أطفال)
+                    فصل: {activeClass.name} ({classChildren.length} أطفال)
                  </p>
             </div>
             <div className="flex items-center gap-3">

@@ -59,7 +59,7 @@ const ChildCard: React.FC<ChildCardProps> = ({
           {child.name}
         </h1>
         <p className={`text-md font-medium ${subTextColorClass} [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]`}>
-          {activeClass.grade} - {activeClass.name}
+          {activeClass.name}
         </p>
       </main>
 
