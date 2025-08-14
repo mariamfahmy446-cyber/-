@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOutletContext, useParams, useNavigate } from 'react-router-dom';
 import type { Child, Class, AppState } from '../types';
 import { TrashIcon, PlusIcon, ArrowLeftIcon, CameraIcon, XIcon } from '../components/Icons';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -102,10 +103,11 @@ const CameraCaptureModal: React.FC<{
 
 const AddEditChild: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { children, setChildren, classes, currentUser } = appState;
+  const { children, classes, currentUser } = appState;
   const { childId, classId } = useParams();
   const navigate = useNavigate();
   const isEditMode = childId !== undefined;
+  const [isSaving, setIsSaving] = useState(false);
 
   const isSiteAdmin = useMemo(() => {
     if (!currentUser) return false;
@@ -177,36 +179,48 @@ const AddEditChild: React.FC = () => {
     setIsCameraOpen(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+
     if (!childData.class_id) {
         alert('يرجى اختيار فصل للطفل.');
         return;
     }
+    
+    setIsSaving(true);
     const targetClassId = childData.class_id;
-    let notification;
     const finalChildData = { ...childData, age: Number(childData.age) };
 
-    if (isEditMode && childId) {
-      setChildren(prev => prev.map(c => (c.id === childId ? { id: childId, ...finalChildData } : c)));
-      notification = { message: 'تم حفظ التعديلات بنجاح!', type: 'success' };
-    } else {
-      const newChild: Child = {
-        id: Date.now().toString(),
-        ...finalChildData,
-      };
-      setChildren(prev => [...prev, newChild]);
-      notification = { message: 'تم إضافة الطفل بنجاح!', type: 'success' };
+    try {
+        if (isEditMode && childId) {
+            await api.updateChild(childId, finalChildData);
+            const notification = { message: 'تم حفظ التعديلات بنجاح!', type: 'success' as const };
+            navigate(`/app/class/${targetClassId}`, { state: { notification } });
+        } else {
+            await api.addChild(finalChildData);
+            const notification = { message: 'تم إضافة الطفل بنجاح!', type: 'success' as const };
+            navigate(`/app/class/${targetClassId}`, { state: { notification } });
+        }
+    } catch (error) {
+        console.error("Failed to save child data:", error);
+        alert("فشل حفظ البيانات. يرجى المحاولة مرة أخرى.");
+        setIsSaving(false);
     }
-    navigate(`/app/class/${targetClassId}`, { state: { notification } });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('هل أنت متأكد من رغبتك في حذف بيانات هذا الطفل؟')) {
+      if (!childId) return;
       const targetClassId = childData.class_id;
-      setChildren(prev => prev.filter(c => c.id !== childId));
-      const notification = { message: 'تم حذف الطفل بنجاح.', type: 'success' };
-      navigate(`/app/class/${targetClassId}`, { state: { notification } });
+      try {
+          await api.deleteChild(childId);
+          const notification = { message: 'تم حذف الطفل بنجاح.', type: 'success' as const };
+          navigate(`/app/class/${targetClassId}`, { state: { notification } });
+      } catch (error) {
+          console.error("Failed to delete child data:", error);
+          alert("فشل حذف البيانات. يرجى المحاولة مرة أخرى.");
+      }
     }
   };
   
@@ -341,8 +355,8 @@ const AddEditChild: React.FC = () => {
               حذف الطفل
             </button>
           )}
-          <button type="submit" className="btn btn-primary">
-            {isEditMode ? 'حفظ التعديلات' : 'إضافة الطفل'}
+          <button type="submit" className="btn btn-primary" disabled={isSaving}>
+            {isSaving ? 'جاري الحفظ...' : isEditMode ? 'حفظ التعديلات' : 'إضافة الطفل'}
           </button>
         </div>
       </form>

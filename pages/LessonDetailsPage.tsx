@@ -4,6 +4,7 @@ import type { AppState } from '../types';
 import type { SyllabusItem, LessonAid } from '../types';
 import { ImageIcon, TrashIcon, PlusIcon, XIcon, ArrowLeftIcon, BookOpenIcon, VideoIcon, LinkIcon, CheckIcon } from '../components/Icons';
 import Notification from '../components/Notification';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -11,7 +12,7 @@ interface OutletContextType {
 
 const LessonDetailsPage: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { syllabus, setSyllabus, lessonAids, setLessonAids } = appState;
+  const { syllabus, lessonAids } = appState;
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
 
@@ -70,15 +71,15 @@ const LessonDetailsPage: React.FC = () => {
     setEditableLesson(prev => prev ? { ...prev, ...updates } : null);
   };
   
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (editableLesson) {
-        setSyllabus(prevSyllabus =>
-            prevSyllabus.map(item =>
-                item.id === lessonId ? editableLesson : item
-            )
-        );
-        setIsDirty(false);
-        setNotification({ message: 'تم حفظ التعديلات بنجاح!', type: 'success' });
+        try {
+            await api.updateSyllabusItem(lessonId!, editableLesson);
+            setIsDirty(false);
+            setNotification({ message: 'تم حفظ التعديلات بنجاح!', type: 'success' });
+        } catch(error) {
+            setNotification({ message: 'فشل حفظ التعديلات.', type: 'error' });
+        }
     }
   };
 
@@ -126,24 +127,33 @@ const LessonDetailsPage: React.FC = () => {
      const file = e.target.files?.[0];
      if (file) {
          const reader = new FileReader();
-         reader.onloadend = () => {
-            const newAid: LessonAid = {
-                id: Date.now().toString(),
+         reader.onloadend = async () => {
+            const newAidData = {
                 lessonId: lessonId!,
                 type: type,
                 data: reader.result as string,
                 title: file.name
             };
-            setLessonAids(prev => [...prev, newAid]);
+            try {
+                await api.addLessonAid(newAidData);
+                setNotification({ message: 'تم رفع الملف بنجاح.', type: 'success' });
+            } catch (error) {
+                setNotification({ message: 'فشل رفع الملف.', type: 'error' });
+            }
          };
          reader.readAsDataURL(file);
      }
      e.target.value = '';
   };
 
-  const handleDeleteAid = (id: string) => {
+  const handleDeleteAid = async (id: string) => {
     if (window.confirm('هل أنت متأكد من حذف وسيلة الإيضاح هذه؟')) {
-        setLessonAids(prev => prev.filter(aid => aid.id !== id));
+        try {
+            await api.deleteLessonAid(id);
+            setNotification({ message: 'تم حذف الملف.', type: 'success' });
+        } catch (error) {
+            setNotification({ message: 'فشل حذف الملف.', type: 'error' });
+        }
     }
   };
 

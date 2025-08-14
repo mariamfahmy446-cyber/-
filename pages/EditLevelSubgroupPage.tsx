@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import type { AppState, EducationLevel, LevelSubgroup } from '../types';
 import { ImageIcon, ArrowLeftIcon } from '../components/Icons';
 import Notification from '../components/Notification';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -31,7 +32,7 @@ const ImageUploader: React.FC<{label: string, imageSrc?: string, onChange: (e: R
 
 const EditLevelSubgroupPage: React.FC = () => {
     const { appState } = useOutletContext<OutletContextType>();
-    const { levels, setLevels } = appState;
+    const { levels } = appState;
     const { levelId, subgroupName: encodedSubgroupName } = useParams();
     const navigate = useNavigate();
     
@@ -41,6 +42,7 @@ const EditLevelSubgroupPage: React.FC = () => {
     const [subgroup, setSubgroup] = useState<LevelSubgroup | null>(null);
     const [formData, setFormData] = useState<{ secretaryName: string; logo: string; }>({ secretaryName: '', logo: '' });
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const handleBack = () => {
         if (window.history.state?.idx > 0) {
@@ -85,21 +87,20 @@ const EditLevelSubgroupPage: React.FC = () => {
         }
     };
     
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSaving || !levelId) return;
         
-        setLevels(prevLevels => prevLevels.map(l => {
-            if (l.id === levelId) {
-                const updatedSubgroups = (l.subgroups || []).map(sg => 
-                    sg.name === subgroupName ? { ...sg, ...formData } : sg
-                );
-                return { ...l, subgroups: updatedSubgroups };
-            }
-            return l;
-        }));
-
-        setNotification({ message: 'تم حفظ التعديلات بنجاح!', type: 'success' });
-        setTimeout(() => navigate(`/app/level/${levelId}`), 500);
+        setIsSaving(true);
+        try {
+            await api.updateLevelSubgroup(levelId, subgroupName, formData);
+            setNotification({ message: 'تم حفظ التعديلات بنجاح!', type: 'success' });
+            setTimeout(() => navigate(`/app/level/${levelId}`), 500);
+        } catch (error) {
+            console.error("Failed to update subgroup", error);
+            setNotification({ message: 'فشل حفظ التعديلات.', type: 'error' });
+            setIsSaving(false);
+        }
     };
 
     if (!level || !subgroup) {
@@ -141,8 +142,8 @@ const EditLevelSubgroupPage: React.FC = () => {
                 </div>
 
                  <div className="flex justify-end items-center gap-4 pt-6 border-t border-slate-200">
-                    <button type="submit" className="btn btn-primary">
-                        حفظ التعديل
+                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                        {isSaving ? 'جاري الحفظ...' : 'حفظ التعديل'}
                     </button>
                 </div>
             </form>

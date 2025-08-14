@@ -4,6 +4,7 @@ import type { AppState } from '../types';
 import type { Hymn } from '../types';
 import { PlusIcon, EditIcon, TrashIcon, YouTubeIcon, DownloadIcon, MusicIcon, XIcon, FileTextIcon, ChevronDownIcon, QrCodeIcon, ArrowLeftIcon } from '../components/Icons';
 import Notification from '../components/Notification';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -104,7 +105,7 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScan, onClose }) => {
 
 const HymnsPage: React.FC = () => {
     const { appState } = useOutletContext<OutletContextType>();
-    const { hymns, setHymns, currentUser } = appState;
+    const { hymns, currentUser } = appState;
     const navigate = useNavigate();
     
     const getInitialFormState = (): Omit<Hymn, 'id'> => ({
@@ -122,6 +123,7 @@ const HymnsPage: React.FC = () => {
     const [expandedLyrics, setExpandedLyrics] = useState<Record<string, boolean>>({});
     const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,21 +172,27 @@ const HymnsPage: React.FC = () => {
         clearFile();
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (isSaving) return;
         if (!formState.title.trim()) {
             setNotification({ message: 'يرجى إدخال اسم الترنيمة.', type: 'error' });
             return;
         }
-
-        if (editingHymn) {
-            setHymns(prev => prev.map(h => h.id === editingHymn.id ? { id: editingHymn.id, ...formState } : h));
-            setNotification({ message: 'تم تعديل الترنيمة بنجاح!', type: 'success' });
-        } else {
-            const newHymn: Hymn = { id: Date.now().toString(), ...formState };
-            setHymns(prev => [newHymn, ...prev]);
-            setNotification({ message: 'تم إضافة الترنيمة بنجاح!', type: 'success' });
+        setIsSaving(true);
+        try {
+            if (editingHymn) {
+                await api.updateHymn(editingHymn.id, formState);
+                setNotification({ message: 'تم تعديل الترنيمة بنجاح!', type: 'success' });
+            } else {
+                await api.addHymn(formState);
+                setNotification({ message: 'تم إضافة الترنيمة بنجاح!', type: 'success' });
+            }
+            resetForm();
+        } catch (error) {
+            setNotification({ message: 'فشل حفظ الترنيمة.', type: 'error' });
+        } finally {
+            setIsSaving(false);
         }
-        resetForm();
     };
     
     const handleEdit = (hymn: Hymn) => {
@@ -200,12 +208,16 @@ const HymnsPage: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm('هل أنت متأكد من حذف هذه الترنيمة؟')) {
-            setHymns(prev => prev.filter(h => h.id !== id));
-            setNotification({ message: 'تم حذف الترنيمة.', type: 'success' });
-            if (editingHymn?.id === id) {
-                resetForm();
+            try {
+                await api.deleteHymn(id);
+                setNotification({ message: 'تم حذف الترنيمة.', type: 'success' });
+                if (editingHymn?.id === id) {
+                    resetForm();
+                }
+            } catch (error) {
+                setNotification({ message: 'فشل حذف الترنيمة.', type: 'error' });
             }
         }
     };
@@ -295,11 +307,15 @@ const HymnsPage: React.FC = () => {
 
                         <div className="flex items-center gap-2 pt-4 border-t">
                             {editingHymn && (
-                                <button onClick={resetForm} className="btn btn-secondary">إلغاء</button>
+                                <button onClick={resetForm} className="btn btn-secondary" disabled={isSaving}>إلغاء</button>
                             )}
-                            <button onClick={handleSave} className="btn btn-primary flex-1">
-                                <PlusIcon className="w-5 h-5"/>
-                                <span>{editingHymn ? 'حفظ التعديلات' : 'إضافة الترنيمة'}</span>
+                            <button onClick={handleSave} className="btn btn-primary flex-1" disabled={isSaving}>
+                                {isSaving ? 'جاري الحفظ...' : (
+                                    <>
+                                        <PlusIcon className="w-5 h-5"/>
+                                        <span>{editingHymn ? 'حفظ التعديلات' : 'إضافة الترنيمة'}</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
