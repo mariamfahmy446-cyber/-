@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOutletContext, useParams, useNavigate } from 'react-router-dom';
-import type { Child, Class, AppState } from '../types';
-import { TrashIcon, PlusIcon, ArrowLeftIcon, CameraIcon, XIcon } from '../components/Icons';
-import { api } from '../services/api';
+import type { Child, Class, AppState, EducationLevel } from '../types';
+import { TrashIcon, PlusIcon, ArrowLeftIcon, CameraIcon, XIcon, ImageIcon } from '../components/Icons';
 
 interface OutletContextType {
   appState: AppState;
@@ -25,19 +24,27 @@ const CameraCaptureModal: React.FC<{
             }
         };
 
-        const openCamera = async () => {
-            // Try user-facing camera first
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+        const constraintsChain = [
+            { video: { facingMode: 'user' } },
+            { video: { facingMode: 'environment' } },
+            { video: true }
+        ];
+
+        let streamAttempt = 0;
+
+        const openCamera = () => {
+            if (streamAttempt >= constraintsChain.length) {
+                console.error("All attempts to access camera failed.");
+                setError("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات والجهاز.");
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia(constraintsChain[streamAttempt])
                 .then(startStream)
                 .catch(err => {
-                    console.warn("Could not get user-facing camera, trying any camera.", err);
-                    // Fallback to any available camera
-                    navigator.mediaDevices.getUserMedia({ video: true })
-                        .then(startStream)
-                        .catch(err2 => {
-                            console.error("Error accessing camera: ", err2);
-                            setError("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
-                        });
+                    console.warn(`Attempt ${streamAttempt + 1} with constraints ${JSON.stringify(constraintsChain[streamAttempt])} failed:`, err.name, err.message);
+                    streamAttempt++;
+                    openCamera();
                 });
         };
 
@@ -103,11 +110,11 @@ const CameraCaptureModal: React.FC<{
 
 const AddEditChild: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { children, classes, currentUser } = appState;
+  const { children, setChildren, classes, levels, currentUser } = appState;
   const { childId, classId } = useParams();
   const navigate = useNavigate();
   const isEditMode = childId !== undefined;
-  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSiteAdmin = useMemo(() => {
     if (!currentUser) return false;
@@ -178,53 +185,67 @@ const AddEditChild: React.FC = () => {
     setPhotoPreview(imageDataUrl);
     setIsCameraOpen(false);
   };
+  
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const imageDataUrl = reader.result as string;
+            setChildData(prev => ({ ...prev, image: imageDataUrl }));
+            setPhotoPreview(imageDataUrl);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
-
     if (!childData.class_id) {
         alert('يرجى اختيار فصل للطفل.');
         return;
     }
-    
-    setIsSaving(true);
     const targetClassId = childData.class_id;
+    let notification;
     const finalChildData = { ...childData, age: Number(childData.age) };
 
-    try {
-        if (isEditMode && childId) {
-            await api.updateChild(childId, finalChildData);
-            const notification = { message: 'تم حفظ التعديلات بنجاح!', type: 'success' as const };
-            navigate(`/app/class/${targetClassId}`, { state: { notification } });
-        } else {
-            await api.addChild(finalChildData);
-            const notification = { message: 'تم إضافة الطفل بنجاح!', type: 'success' as const };
-            navigate(`/app/class/${targetClassId}`, { state: { notification } });
-        }
-    } catch (error) {
-        console.error("Failed to save child data:", error);
-        alert("فشل حفظ البيانات. يرجى المحاولة مرة أخرى.");
-        setIsSaving(false);
+    if (isEditMode && childId) {
+      setChildren(prev => prev.map(c => (c.id === childId ? { id: childId, ...finalChildData } : c)));
+      notification = { message: 'تم حفظ التعديلات بنجاح!', type: 'success' };
+    } else {
+      const newChild: Child = {
+        id: Date.now().toString(),
+        ...finalChildData,
+      };
+      setChildren(prev => [...prev, newChild]);
+      notification = { message: 'تم إضافة الطفل بنجاح!', type: 'success' };
     }
+    navigate(`/app/class/${targetClassId}`, { state: { notification } });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (window.confirm('هل أنت متأكد من رغبتك في حذف بيانات هذا الطفل؟')) {
-      if (!childId) return;
       const targetClassId = childData.class_id;
-      try {
-          await api.deleteChild(childId);
-          const notification = { message: 'تم حذف الطفل بنجاح.', type: 'success' as const };
-          navigate(`/app/class/${targetClassId}`, { state: { notification } });
-      } catch (error) {
-          console.error("Failed to delete child data:", error);
-          alert("فشل حذف البيانات. يرجى المحاولة مرة أخرى.");
-      }
+      setChildren(prev => prev.filter(c => c.id !== childId));
+      const notification = { message: 'تم حذف الطفل بنجاح.', type: 'success' };
+      navigate(`/app/class/${targetClassId}`, { state: { notification } });
     }
   };
   
   const currentClass = classes.find(c => c.id === childData.class_id);
+  const displayClassName = currentClass && (currentClass.name.includes(currentClass.grade) ? currentClass.name : `${currentClass.grade} - ${currentClass.name}`);
+
+  const groupedClasses = useMemo(() => {
+    return levels.map(level => {
+        const levelClasses = classes
+            .filter(c => c.level_id === level.id)
+            .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        return {
+            ...level,
+            classes: levelClasses
+        };
+    }).filter(level => level.classes.length > 0);
+  }, [levels, classes]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -241,7 +262,7 @@ const AddEditChild: React.FC = () => {
         
         <div className="text-center">
             {currentClass && <p className="text-slate-600 mt-1 mb-4">
-                الفصل: {`${currentClass.grade} - ${currentClass.name}`}
+                الفصل: {displayClassName}
             </p>}
              <input
                 type="text"
@@ -264,10 +285,17 @@ const AddEditChild: React.FC = () => {
                         alt="صورة الطفل" 
                         className="w-48 h-48 mx-auto rounded-full object-cover border-8 border-slate-100 shadow-sm"
                      />
-                    <button type="button" onClick={() => setIsCameraOpen(true)} className="btn btn-primary">
-                        <CameraIcon className="w-5 h-5" />
-                        <span>{photoPreview ? 'التقاط صورة جديدة' : 'التقاط صورة'}</span>
-                    </button>
+                    <div className="flex justify-center gap-2 flex-wrap">
+                        <button type="button" onClick={() => setIsCameraOpen(true)} className="btn btn-primary">
+                            <CameraIcon className="w-5 h-5" />
+                            <span>التقاط صورة</span>
+                        </button>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn-secondary">
+                            <ImageIcon className="w-5 h-5" />
+                            <span>اختيار صورة</span>
+                        </button>
+                        <input type="file" ref={fileInputRef} onChange={handlePhotoSelect} accept="image/*" className="hidden" />
+                    </div>
                  </div>
 
                  {isEditMode && childId && (
@@ -300,8 +328,12 @@ const AddEditChild: React.FC = () => {
                             className="form-select"
                         >
                             <option value="" disabled>-- يرجى اختيار فصل --</option>
-                            {classes.map(c => (
-                                <option key={c.id} value={c.id}>{c.grade} - {c.name}</option>
+                            {groupedClasses.map(level => (
+                                <optgroup key={level.id} label={level.name}>
+                                    {level.classes.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </optgroup>
                             ))}
                         </select>
                     </div>
@@ -355,8 +387,8 @@ const AddEditChild: React.FC = () => {
               حذف الطفل
             </button>
           )}
-          <button type="submit" className="btn btn-primary" disabled={isSaving}>
-            {isSaving ? 'جاري الحفظ...' : isEditMode ? 'حفظ التعديلات' : 'إضافة الطفل'}
+          <button type="submit" className="btn btn-primary">
+            {isEditMode ? 'حفظ التعديلات' : 'إضافة الطفل'}
           </button>
         </div>
       </form>

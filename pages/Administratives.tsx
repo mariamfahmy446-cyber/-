@@ -1,9 +1,11 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useOutletContext, useNavigate, Link, Navigate } from 'react-router-dom';
 import type { Settings, EducationLevel, Class as ClassType, Servant, User, AppState, NotificationItem, Child, UserRole } from '../types';
 import { 
     EditIcon, TrashIcon, PlusIcon, ChevronDownIcon, 
-    UserIcon, BellIcon, ImageIcon, UsersIcon, XIcon, BookOpenIcon, UserPlusIcon, ArrowLeftIcon, PhoneIcon, RoseIcon
+    UserIcon, BellIcon, ImageIcon, UsersIcon, XIcon, BookOpenIcon, UserPlusIcon, ArrowLeftIcon, PhoneIcon
 } from '../components/Icons';
 import Notification from '../components/Notification';
 
@@ -20,35 +22,6 @@ type NotificationType = {
 }
 
 const PRIMARY_GRADES = ['الصف الاول', 'الصف الثانى', 'الصف الثالث', 'الصف الرابع', 'الصف الخامس', 'الصف السادس'];
-
-const StatCard: React.FC<{ title: string, value: string | number, icon: React.ElementType, colorClass: string }> = ({ title, value, icon: Icon, colorClass }) => (
-    <div className="bg-white rounded-xl shadow p-4 flex items-center">
-        <div className={`p-3 rounded-lg mr-4 ml-2 ${colorClass}`}>
-            <Icon className="w-6 h-6 text-white" />
-        </div>
-        <div>
-            <p className="text-sm text-slate-500 font-medium">{title}</p>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-        </div>
-    </div>
-);
-
-const DatabaseOverview: React.FC<{ appState: AppState }> = ({ appState }) => {
-    const { children, servants, classes, levels, users } = appState;
-    
-    return (
-        <div className="mb-8">
-             <h2 className="text-xl font-bold text-slate-800 mb-4">نظرة عامة على المكتبة المركزية</h2>
-             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <StatCard title="الطلاب المسجلين" value={children.length} icon={UserIcon} colorClass="bg-sky-500" />
-                <StatCard title="الخدام المسجلين" value={servants.length} icon={UsersIcon} colorClass="bg-emerald-500" />
-                <StatCard title="الفصول المُعرفة" value={classes.length} icon={BookOpenIcon} colorClass="bg-amber-500" />
-                <StatCard title="المراحل المُعرفة" value={levels.length} icon={RoseIcon} colorClass="bg-rose-500" />
-                <StatCard title="حسابات المستخدمين" value={users.length} icon={UserPlusIcon} colorClass="bg-violet-500" />
-            </div>
-        </div>
-    );
-}
 
 const MultiSelect: React.FC<{
     options: { value: string, label: string }[];
@@ -281,9 +254,8 @@ const AdministrativesPage: React.FC = () => {
   const { levels, setLevels, classes, setClasses, children, setChildren, currentUser } = appState;
   const navigate = useNavigate();
 
-  const restrictedRoles: UserRole[] = ['servant', 'class_supervisor', 'level_secretary', 'secretary', 'assistant_secretary'];
-  if (currentUser?.roles.some(role => restrictedRoles.includes(role))) {
-      return <Navigate to="/app/dashboard" replace />;
+  if (currentUser?.roles.includes('servant')) {
+    return <Navigate to="/app/dashboard" replace />;
   }
   
   const addUserFormRef = useRef<HTMLDivElement>(null);
@@ -294,7 +266,7 @@ const AdministrativesPage: React.FC = () => {
     if (window.history.state?.idx > 0) {
         navigate(-1);
     } else {
-        navigate('/app/dashboard', { replace: true });
+        navigate('/app', { replace: true });
     }
   };
   
@@ -345,7 +317,7 @@ const AdministrativesPage: React.FC = () => {
        )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <h1 className="text-3xl font-bold text-slate-900">إدارة البيانات</h1>
+            <h1 className="text-3xl font-bold text-slate-900">الإداريات</h1>
             <p className="text-slate-500 mt-1">إدارة الخدمات، المستخدمين، والصلاحيات.</p>
         </div>
         <button
@@ -356,8 +328,6 @@ const AdministrativesPage: React.FC = () => {
             <span>رجوع</span>
         </button>
       </div>
-
-      <DatabaseOverview appState={appState} />
 
       <QuickActions 
         onAddClass={handleAddNewClass}
@@ -582,28 +552,44 @@ const CollapsibleLevelItem: React.FC<{
     );
 };
 
-const PriestCard: React.FC<{ user: User, servant?: Servant }> = ({ user, servant }) => (
-    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center text-center w-44 border border-slate-200">
-        <img 
-            src={servant?.image || `https://i.pravatar.cc/150?u=${user.id}`} 
-            alt={user.displayName}
-            className="w-24 h-24 rounded-full object-cover border-4 border-slate-200"
-        />
-        <h3 className="font-bold text-lg text-slate-800 mt-3">{user.displayName}</h3>
-        <div className="mt-2 text-sm text-slate-500 space-y-1">
-            {servant?.phone && (
+const PriestCard: React.FC<{ 
+    user: User, 
+    servant?: Servant,
+    onEdit: (user: User) => void;
+    isEditDisabled?: (user: User) => boolean;
+}> = ({ user, servant, onEdit, isEditDisabled }) => {
+    const editIsDisabled = isEditDisabled ? isEditDisabled(user) : false;
+    return (
+        <div className="relative bg-white rounded-xl shadow-md p-4 flex flex-col items-center text-center w-44 border border-slate-200">
+            <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(user); }} 
+                className="absolute top-2 right-2 p-1.5 text-slate-500 hover:bg-slate-200 rounded-full disabled:opacity-50 disabled:cursor-not-allowed z-10" 
+                title="تعديل" 
+                disabled={editIsDisabled}
+            >
+                <EditIcon className="w-4 h-4"/>
+            </button>
+            <img 
+                src={servant?.image || `https://i.pravatar.cc/150?u=${user.id}`} 
+                alt={user.displayName}
+                className="w-24 h-24 rounded-full object-cover border-4 border-slate-200"
+            />
+            <h3 className="font-bold text-lg text-slate-800 mt-3">{user.displayName}</h3>
+            <div className="mt-2 text-sm text-slate-500 space-y-1">
+                {servant?.phone && (
+                    <div className="flex items-center justify-center gap-2">
+                        <PhoneIcon className="w-4 h-4" />
+                        <span>{servant.phone}</span>
+                    </div>
+                )}
                 <div className="flex items-center justify-center gap-2">
-                    <PhoneIcon className="w-4 h-4" />
-                    <span>{servant.phone}</span>
+                    <UserIcon className="w-4 h-4" />
+                    <span>@{user.username}</span>
                 </div>
-            )}
-            <div className="flex items-center justify-center gap-2">
-                <UserIcon className="w-4 h-4" />
-                <span>@{user.username}</span>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 
 const UserRoleSection: React.FC<{
@@ -625,7 +611,7 @@ const UserRoleSection: React.FC<{
                     <div className="flex flex-wrap gap-4 justify-center pt-4">
                         {users.map(user => {
                             const servant = servants.find(s => s.id === user.servantId);
-                            return <PriestCard key={user.id} user={user} servant={servant} />;
+                            return <PriestCard key={user.id} user={user} servant={servant} onEdit={onEdit} isEditDisabled={isEditDisabled} />;
                         })}
                     </div>
                 ) : (
@@ -711,7 +697,7 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64String = reader.result as string;
-            setSettings(prev => ({ ...prev, churchLogo: base64String }));
+            setSettings(prev => ({ ...prev, churchLogo: base64String, schoolLogo: base64String }));
             showNotification('تم تحديث الشعار بنجاح.');
           };
           reader.readAsDataURL(file);
@@ -885,6 +871,9 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
 
 
     const isEditDisabled = (user: User) => {
+        if (user.nationalId === SUPER_ADMIN_NATIONAL_ID && currentUser.nationalId !== SUPER_ADMIN_NATIONAL_ID) {
+            return true;
+        }
         return isPriest && user.roles.includes('general_secretary');
     };
     
@@ -947,7 +936,7 @@ const UsersSettings: React.FC<{appState: AppState, showNotification: (msg: strin
                 currentUser={currentUser}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                isEditDisabled={(user) => user.nationalId === SUPER_ADMIN_NATIONAL_ID && isPriest}
+                isEditDisabled={(user) => user.nationalId === SUPER_ADMIN_NATIONAL_ID && currentUser.nationalId !== SUPER_ADMIN_NATIONAL_ID}
                 hideDelete
             />
              <UserRoleSection

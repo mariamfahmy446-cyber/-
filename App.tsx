@@ -40,7 +40,6 @@ import WelcomeModal from './components/WelcomeModal';
 import useFilteredAppState from './hooks/useFilteredAppState';
 import AdministrativesPage from './pages/Administratives';
 import { playSound, playVibration } from './utils/audio';
-import { api } from './services/api';
 
 
 interface OutletContextType {
@@ -58,7 +57,7 @@ const MainAppLayout: React.FC<{
 
     useEffect(() => {
         // If profile is not complete, force user to their profile page.
-        if (currentUser && !currentUser.profileComplete && currentUser.servantId) {
+        if (currentUser && !currentUser.profileComplete) {
             const targetPath = `/app/servant/${currentUser.servantId}`;
             if (location.pathname !== targetPath) {
                 navigate(targetPath, { replace: true });
@@ -134,31 +133,6 @@ function App() {
   
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('currentUser_v3', null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-
-  useEffect(() => {
-    api.initApi({
-      setLevels,
-      setClasses,
-      setChildren,
-      setServants,
-      setSettings,
-      setHymns,
-      setAttendanceHistory,
-      setPointsSettings,
-      setSyllabus,
-      setClassMaterials,
-      setLessonAids,
-      setLanguage,
-      setUsers,
-      setCurrentUser,
-      setNotifications,
-    });
-  }, [
-    setLevels, setClasses, setChildren, setServants, setSettings,
-    setHymns, setAttendanceHistory, setPointsSettings, setSyllabus,
-    setClassMaterials, setLessonAids, setLanguage, setUsers,
-    setCurrentUser, setNotifications
-  ]);
   
   const handleLogin = (username: string, password: string): { success: boolean; message: string } => {
     const user = users.find(u => (u.username === username || u.nationalId === username));
@@ -243,6 +217,19 @@ function App() {
     return { success: true, message: 'تم التسجيل بنجاح!' };
   };
 
+  useEffect(() => {
+    // Migration for existing users who won't have the `profileComplete` flag.
+    setUsers(currentUsers => {
+        return currentUsers.map(user => {
+            if (user.profileComplete === undefined) {
+                // Assume existing users have completed their profiles.
+                return { ...user, profileComplete: true };
+            }
+            return user;
+        });
+    });
+  }, []); 
+
     // Global click sound effect
     useEffect(() => {
         const handleClick = (event: MouseEvent) => {
@@ -312,7 +299,7 @@ function App() {
   };
 
   return (
-      <div className="text-slate-800" style={{ minWidth: '1280px' }}>
+      <div className="text-slate-800">
           {showWelcomeModal && currentUser && currentUser.profileComplete && <WelcomeModal user={currentUser} onClose={handleCloseWelcomeModal} />}
           <Routes>
             <Route path="/login" element={<LoginPage onLogin={handleLogin} settings={settings} currentUser={currentUser} />} />

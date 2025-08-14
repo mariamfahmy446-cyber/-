@@ -4,7 +4,6 @@ import type { AppState } from '../types';
 import type { Hymn } from '../types';
 import { PlusIcon, EditIcon, TrashIcon, YouTubeIcon, DownloadIcon, MusicIcon, XIcon, FileTextIcon, ChevronDownIcon, QrCodeIcon, ArrowLeftIcon } from '../components/Icons';
 import Notification from '../components/Notification';
-import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -65,19 +64,32 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScan, onClose }) => {
       animationFrameId = requestAnimationFrame(tick);
     };
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(startStream)
-      .catch(err => {
-        console.warn("Could not get environment camera, trying default camera.", err);
-        // Fallback to any available camera
-        navigator.mediaDevices.getUserMedia({ video: true })
+    const constraintsChain = [
+        { video: { facingMode: 'environment' } },
+        { video: { facingMode: 'user' } },
+        { video: true }
+    ];
+    
+    let streamAttempt = 0;
+
+    const openCamera = () => {
+        if (streamAttempt >= constraintsChain.length) {
+            console.error("All attempts to access camera failed.");
+            alert("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات والجهاز.");
+            onClose();
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia(constraintsChain[streamAttempt])
             .then(startStream)
-            .catch(err2 => {
-                console.error("Error accessing camera: ", err2);
-                alert("لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.");
-                onClose();
+            .catch(err => {
+                console.warn(`Attempt ${streamAttempt + 1} with constraints ${JSON.stringify(constraintsChain[streamAttempt])} failed:`, err.name, err.message);
+                streamAttempt++;
+                openCamera();
             });
-      });
+    };
+    
+    openCamera();
 
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -105,7 +117,7 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScan, onClose }) => {
 
 const HymnsPage: React.FC = () => {
     const { appState } = useOutletContext<OutletContextType>();
-    const { hymns, currentUser } = appState;
+    const { hymns, setHymns, currentUser } = appState;
     const navigate = useNavigate();
     
     const getInitialFormState = (): Omit<Hymn, 'id'> => ({
@@ -123,7 +135,6 @@ const HymnsPage: React.FC = () => {
     const [expandedLyrics, setExpandedLyrics] = useState<Record<string, boolean>>({});
     const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
     const [isScannerOpen, setIsScannerOpen] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -172,27 +183,21 @@ const HymnsPage: React.FC = () => {
         clearFile();
     }
 
-    const handleSave = async () => {
-        if (isSaving) return;
+    const handleSave = () => {
         if (!formState.title.trim()) {
             setNotification({ message: 'يرجى إدخال اسم الترنيمة.', type: 'error' });
             return;
         }
-        setIsSaving(true);
-        try {
-            if (editingHymn) {
-                await api.updateHymn(editingHymn.id, formState);
-                setNotification({ message: 'تم تعديل الترنيمة بنجاح!', type: 'success' });
-            } else {
-                await api.addHymn(formState);
-                setNotification({ message: 'تم إضافة الترنيمة بنجاح!', type: 'success' });
-            }
-            resetForm();
-        } catch (error) {
-            setNotification({ message: 'فشل حفظ الترنيمة.', type: 'error' });
-        } finally {
-            setIsSaving(false);
+
+        if (editingHymn) {
+            setHymns(prev => prev.map(h => h.id === editingHymn.id ? { id: editingHymn.id, ...formState } : h));
+            setNotification({ message: 'تم تعديل الترنيمة بنجاح!', type: 'success' });
+        } else {
+            const newHymn: Hymn = { id: Date.now().toString(), ...formState };
+            setHymns(prev => [newHymn, ...prev]);
+            setNotification({ message: 'تم إضافة الترنيمة بنجاح!', type: 'success' });
         }
+        resetForm();
     };
     
     const handleEdit = (hymn: Hymn) => {
@@ -208,16 +213,12 @@ const HymnsPage: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = (id: string) => {
         if (window.confirm('هل أنت متأكد من حذف هذه الترنيمة؟')) {
-            try {
-                await api.deleteHymn(id);
-                setNotification({ message: 'تم حذف الترنيمة.', type: 'success' });
-                if (editingHymn?.id === id) {
-                    resetForm();
-                }
-            } catch (error) {
-                setNotification({ message: 'فشل حذف الترنيمة.', type: 'error' });
+            setHymns(prev => prev.filter(h => h.id !== id));
+            setNotification({ message: 'تم حذف الترنيمة.', type: 'success' });
+            if (editingHymn?.id === id) {
+                resetForm();
             }
         }
     };
@@ -307,15 +308,11 @@ const HymnsPage: React.FC = () => {
 
                         <div className="flex items-center gap-2 pt-4 border-t">
                             {editingHymn && (
-                                <button onClick={resetForm} className="btn btn-secondary" disabled={isSaving}>إلغاء</button>
+                                <button onClick={resetForm} className="btn btn-secondary">إلغاء</button>
                             )}
-                            <button onClick={handleSave} className="btn btn-primary flex-1" disabled={isSaving}>
-                                {isSaving ? 'جاري الحفظ...' : (
-                                    <>
-                                        <PlusIcon className="w-5 h-5"/>
-                                        <span>{editingHymn ? 'حفظ التعديلات' : 'إضافة الترنيمة'}</span>
-                                    </>
-                                )}
+                            <button onClick={handleSave} className="btn btn-primary flex-1">
+                                <PlusIcon className="w-5 h-5"/>
+                                <span>{editingHymn ? 'حفظ التعديلات' : 'إضافة الترنيمة'}</span>
                             </button>
                         </div>
                     </div>

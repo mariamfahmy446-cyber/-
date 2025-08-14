@@ -3,8 +3,6 @@ import { useParams, useOutletContext, Link, useNavigate } from 'react-router-dom
 import type { AppState } from '../types';
 import type { SyllabusItem, ClassMaterial } from '../types';
 import { ImageIcon, FileTextIcon, TrashIcon, PlusIcon, EditIcon, XIcon, DownloadIcon, ArrowLeftIcon } from '../components/Icons';
-import { api } from '../services/api';
-import Notification from '../components/Notification';
 
 interface OutletContextType {
   appState: AppState;
@@ -12,14 +10,13 @@ interface OutletContextType {
 
 const ClassSyllabusPage: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { levels, classes, syllabus, classMaterials } = appState;
+  const { levels, classes, syllabus, setSyllabus, classMaterials, setClassMaterials } = appState;
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<ClassMaterial | null>(null);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
 
   const activeClass = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
@@ -31,38 +28,28 @@ const ClassSyllabusPage: React.FC = () => {
   const getInitialFormState = () => ({ date: '', lessonName: '', servantName: '' });
   const [lessonForm, setLessonForm] = useState(getInitialFormState());
   const [editingLesson, setEditingLesson] = useState<SyllabusItem | null>(null);
-  const [isSavingLesson, setIsSavingLesson] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLessonForm({ ...lessonForm, [e.target.name]: e.target.value });
   };
   
-  const handleSaveLesson = async () => {
-    if (isSavingLesson) return;
+  const handleSaveLesson = () => {
     if (lessonForm.date && lessonForm.lessonName && lessonForm.servantName.trim()) {
-      setIsSavingLesson(true);
-      try {
-        if (editingLesson) {
-          await api.updateSyllabusItem(editingLesson.id, { ...lessonForm, servantName: lessonForm.servantName.trim() });
-          setNotification({ message: 'تم تعديل الدرس بنجاح.', type: 'success' });
-          setEditingLesson(null);
-        } else {
-          const newItemData = {
-            classId: classId!,
-            ...lessonForm,
-            servantName: lessonForm.servantName.trim(),
-          };
-          await api.addSyllabusItem(newItemData);
-          setNotification({ message: 'تم إضافة الدرس بنجاح.', type: 'success' });
-        }
-        setLessonForm(getInitialFormState());
-      } catch (error) {
-        setNotification({ message: 'فشل حفظ الدرس.', type: 'error' });
-      } finally {
-        setIsSavingLesson(false);
+      if (editingLesson) {
+        setSyllabus(prev => prev.map(item => item.id === editingLesson.id ? { ...item, ...lessonForm, servantName: lessonForm.servantName.trim() } : item));
+        setEditingLesson(null);
+      } else {
+        const newItem: SyllabusItem = {
+          id: Date.now().toString(),
+          classId: classId!,
+          ...lessonForm,
+          servantName: lessonForm.servantName.trim(),
+        };
+        setSyllabus(prev => [...prev, newItem]);
       }
+      setLessonForm(getInitialFormState());
     } else {
-        setNotification({ message: 'يرجى ملء جميع حقول الدرس.', type: 'error' });
+        alert('يرجى ملء جميع حقول الدرس.');
     }
   };
 
@@ -77,16 +64,11 @@ const ClassSyllabusPage: React.FC = () => {
     setLessonForm(getInitialFormState());
   };
 
-  const handleDeleteLesson = async (id: string) => {
+  const handleDeleteLesson = (id: string) => {
     if(window.confirm('هل أنت متأكد من حذف هذا الدرس؟')) {
-      try {
-        await api.deleteSyllabusItem(id);
-        setNotification({ message: 'تم حذف الدرس.', type: 'success' });
-        if (editingLesson?.id === id) {
-            handleCancelEdit();
-        }
-      } catch (error) {
-        setNotification({ message: 'فشل حذف الدرس.', type: 'error' });
+      setSyllabus(prev => prev.filter(item => item.id !== id));
+      if (editingLesson?.id === id) {
+          handleCancelEdit();
       }
     }
   };
@@ -95,33 +77,24 @@ const ClassSyllabusPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const newMaterialData = {
+      reader.onloadend = () => {
+        const newMaterial: ClassMaterial = {
+          id: Date.now().toString(),
           classId: classId!,
           type,
           name: file.name,
           data: reader.result as string,
         };
-        try {
-            await api.addClassMaterial(newMaterialData);
-            setNotification({ message: 'تم رفع الملف بنجاح.', type: 'success' });
-        } catch(error) {
-            setNotification({ message: 'فشل رفع الملف.', type: 'error' });
-        }
+        setClassMaterials(prev => [...prev, newMaterial]);
       };
       reader.readAsDataURL(file);
     }
     e.target.value = '';
   };
 
-  const handleDeleteMaterial = async (id: string) => {
+  const handleDeleteMaterial = (id: string) => {
     if(window.confirm('هل أنت متأكد من حذف هذا الملف؟')) {
-      try {
-        await api.deleteClassMaterial(id);
-        setNotification({ message: 'تم حذف الملف.', type: 'success' });
-      } catch (error) {
-        setNotification({ message: 'فشل حذف الملف.', type: 'error' });
-      }
+      setClassMaterials(prev => prev.filter(item => item.id !== id));
     }
   };
 
@@ -144,7 +117,6 @@ const ClassSyllabusPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} appSettings={appState.settings} />}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <button onClick={handleBack} className="btn btn-secondary self-start sm:self-center">
             <ArrowLeftIcon className="w-4 h-4" />
@@ -255,17 +227,13 @@ const ClassSyllabusPage: React.FC = () => {
             </div>
             <div className="md:col-span-1 flex items-end gap-2">
               {editingLesson && (
-                <button onClick={handleCancelEdit} className="p-2 bg-slate-300 text-slate-800 rounded-lg hover:bg-slate-400 transition-colors flex items-center justify-center" title="إلغاء التعديل" disabled={isSavingLesson}>
+                <button onClick={handleCancelEdit} className="p-2 bg-slate-300 text-slate-800 rounded-lg hover:bg-slate-400 transition-colors flex items-center justify-center" title="إلغاء التعديل">
                     <XIcon className="w-5 h-5"/>
                 </button>
               )}
-              <button onClick={handleSaveLesson} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2" disabled={isSavingLesson}>
-                {isSavingLesson ? 'جاري الحفظ...' : (
-                    <>
-                        {editingLesson ? null : <PlusIcon className="w-5 h-5"/>}
-                        <span>{editingLesson ? 'حفظ' : 'إضافة درس'}</span>
-                    </>
-                )}
+              <button onClick={handleSaveLesson} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                {editingLesson ? 'حفظ التعديلات' : <PlusIcon className="w-5 h-5"/>}
+                <span>{editingLesson ? 'حفظ' : 'إضافة درس'}</span>
               </button>
             </div>
           </div>

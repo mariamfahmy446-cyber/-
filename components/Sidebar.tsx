@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
-import type { Class, EducationLevel, User, UserRole } from '../types';
+import type { Class, EducationLevel, User } from '../types';
 import { 
     ChevronDownIcon, 
     ChevronUpIcon, 
@@ -46,19 +46,20 @@ const Sidebar: React.FC<SidebarProps> = ({ levels, classes, isCollapsed, setIsCo
     { to: '/app/points-settings', text: 'نظام النقاط', Icon: AwardIcon },
     { to: '/app/hymns', text: 'ادارة الترانيم', Icon: MusicIcon },
     { to: '/app/activities', text: 'الانشطة', Icon: ToyBrickIcon },
-    { to: '/app/administratives', text: 'إدارة البيانات', Icon: BriefcaseIcon },
+    { to: '/app/administratives', text: 'الاداريات', Icon: BriefcaseIcon },
     { to: '/app/settings', text: 'الاعدادات العامة', Icon: SettingsIcon },
   ];
   
   const filteredMenuItems = useMemo(() => {
     if (!currentUser) return [];
 
-    const restrictedRoles: UserRole[] = ['servant', 'class_supervisor', 'level_secretary', 'secretary', 'assistant_secretary'];
-    const isRestricted = currentUser.roles.some(role => restrictedRoles.includes(role));
+    const isServant = currentUser.roles.includes('servant');
     
     return menuItems.filter(item => {
-        if (item.to === '/app/administratives' && isRestricted) {
-            return false;
+        if (isServant) {
+            if (item.to === '/app/administratives') { // Only hide administratives
+                return false;
+            }
         }
         return true;
     });

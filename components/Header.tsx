@@ -26,7 +26,7 @@ const translations = {
         noNotifications: 'لا توجد إشعارات جديدة.',
         newNotificationsAppearHere: 'ستظهر الإشعارات الجديدة هنا.',
         markAllAsRead: 'تحديد الكل كمقروء',
-        roleGeneralSecretary: 'مدير الموقع',
+        roleGeneralSecretary: 'امين عام',
         roleAssistantSecretary: 'امين مساعد',
         roleSecretary: 'أمين',
         roleLevelSecretary: 'امين مرحلة',
@@ -46,7 +46,7 @@ const translations = {
         noNotifications: 'No new notifications.',
         newNotificationsAppearHere: 'New notifications will appear here.',
         markAllAsRead: 'Mark all as read',
-        roleGeneralSecretary: 'Site Manager',
+        roleGeneralSecretary: 'General Secretary',
         roleAssistantSecretary: 'Assistant Secretary',
         roleSecretary: 'Secretary',
         roleLevelSecretary: 'Level Secretary',
@@ -91,6 +91,11 @@ const Header: React.FC<HeaderProps> = ({ settings, language, notifications, setN
   
   const getRoleTranslation = (roles?: User['roles']) => {
     if (!roles || roles.length === 0) return '';
+
+    // Special case for the specific user "Mariam Fahmy"
+    if (currentUser && currentUser.nationalId === '29908241301363' && roles.includes('general_secretary')) {
+        return 'مدير الموقع';
+    }
 
     const roleOrder: UserRole[] = ['general_secretary', 'priest', 'assistant_secretary', 'secretary', 'level_secretary', 'class_supervisor', 'servant'];
     const roleTranslationMap: Record<UserRole, string> = {

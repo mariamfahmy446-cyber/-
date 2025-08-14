@@ -69,7 +69,6 @@ export const INITIAL_LEVELS: EducationLevel[] = [
 
 
 export const INITIAL_SERVANTS: Servant[] = [
-    { id: 'servant-admin-1', name: 'مريم فهمي', phone: '01000000000', serviceAssignments: [] },
     { id: 'servant-1', name: 'أ/ منى', phone: '01012345678', email: 'mona@example.com', address: '1 شارع الكنيسة', notes: 'مسؤولة فصل الأمل', image: 'https://i.pravatar.cc/150?u=servant-1', birthDate: '1990-05-15', age: 34, confessionFather: 'أبونا مرقس', maritalStatus: 'married', professionalStatus: 'working', jobTitle: 'معلمة', workplace: 'مدرسة النهضة', college: '', professionalStatusNotes: '' },
     { id: 'servant-2', name: 'أ/ سلمى', phone: '01111111111', email: 'salma@example.com', address: '2 شارع المدرسة', notes: '', image: 'https://i.pravatar.cc/150?u=servant-2', birthDate: '1995-02-20', age: 29, confessionFather: 'أبونا بطرس', maritalStatus: 'engaged', professionalStatus: 'working', jobTitle: 'مهندسة', workplace: 'شركة النور', college: '', professionalStatusNotes: '' },
     { id: 'servant-3', name: 'أ/ هبة', phone: '01123456789', email: 'heba@example.com', address: '3 شارع المحطة', notes: '', image: 'https://i.pravatar.cc/150?u=servant-3', birthDate: '2001-10-10', age: 22, confessionFather: 'أبونا بولس', maritalStatus: 'single', professionalStatus: 'student', jobTitle: '', workplace: '', college: 'كلية الآداب', professionalStatusNotes: '' },
@@ -88,7 +87,7 @@ PRIMARY_GRADES.forEach((grade, index) => {
         id: `class-primary-${index + 1}-boys`,
         level_id: 'level-primary',
         grade: grade,
-        name: `${grade}`,
+        name: `${grade} بنين`,
         supervisorName: '',
         servantNames: [],
     });
@@ -97,7 +96,7 @@ PRIMARY_GRADES.forEach((grade, index) => {
         id: `class-primary-${index + 1}-girls`,
         level_id: 'level-primary',
         grade: grade,
-        name: `${grade}`,
+        name: `${grade} بنات`,
         supervisorName: '',
         servantNames: [],
     });
@@ -187,7 +186,7 @@ export const INITIAL_POINTS_SETTINGS: PointsSettings = {
 };
 
 export const INITIAL_USERS: User[] = [
-  { id: 'user-1', username: 'mariamfahmy', password: '123456', displayName: 'مريم فهمي', nationalId: '29908241301363', roles: ['general_secretary'], servantId: 'servant-admin-1' },
+  { id: 'user-1', username: 'mariamfahmy', password: '123456', displayName: 'مريم فهمي', nationalId: '29908241301363', roles: ['general_secretary'] },
   { id: 'priest-younis', username: 'fr.younis', password: 'password', displayName: 'ابونا يؤنس', roles: ['priest'], servantId: 'servant-priest-younis' },
   { id: 'priest-karas', username: 'fr.karas', password: 'password', displayName: 'ابونا كاراس', roles: ['priest'], servantId: 'servant-priest-karas' },
   { id: 'priest-bmwa', username: 'fr.bmwa', password: 'password', displayName: 'ابونا بموا', roles: ['priest'], servantId: 'servant-priest-bmwa' },

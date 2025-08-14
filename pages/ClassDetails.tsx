@@ -3,7 +3,6 @@ import { Link, useOutletContext, useNavigate, useParams, useLocation } from 'rea
 import type { Child, Class, EducationLevel, Servant, AppState } from '../types';
 import { EditIcon, TrashIcon, PlusIcon, FileTextIcon, UsersIcon, UserIcon, BookOpenIcon, IdIcon, SettingsIcon, XIcon, ArrowLeftIcon } from '../components/Icons';
 import Notification from '../components/Notification';
-import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -94,14 +93,13 @@ const ImageUploader: React.FC<{label: string, imageSrc?: string, onChange: (e: R
 
 const ClassDetails: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { classes, children, servants, currentUser } = appState;
+  const { classes, children, setChildren, servants, setClasses, currentUser } = appState;
   const navigate = useNavigate();
   const { classId } = useParams<{ classId: string }>();
   const location = useLocation();
 
   const [notification, setNotification] = useState<NotificationType | null>(location.state?.notification || null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   const activeClass = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
 
@@ -161,32 +159,19 @@ const ClassDetails: React.FC = () => {
     }
   };
 
-  const handleSaveClassSettings = async () => {
+  const handleSaveClassSettings = () => {
     if (editableClass) {
-        setIsSaving(true);
-        try {
-            await api.updateClass(classId!, editableClass);
-            setNotification({ message: 'تم حفظ إعدادات الفصل بنجاح.', type: 'success' });
-            setIsSettingsOpen(false);
-        } catch (error) {
-            console.error("Failed to save class settings:", error);
-            setNotification({ message: 'فشل حفظ الإعدادات. حاول مرة أخرى.', type: 'error' });
-        } finally {
-            setIsSaving(false);
-        }
+        setClasses(prev => prev.map(c => c.id === classId ? editableClass : c));
+        setNotification({ message: 'تم حفظ إعدادات الفصل بنجاح.', type: 'success' });
+        setIsSettingsOpen(false);
     }
   };
 
 
-  const handleDeleteChild = async (id: string) => {
+  const handleDeleteChild = (id: string) => {
     if (window.confirm('هل أنت متأكد من رغبتك في حذف بيانات هذا الطفل؟')) {
-      try {
-        await api.deleteChild(id);
-        setNotification({ message: 'تم حذف الطفل بنجاح.', type: 'success' });
-      } catch (error) {
-        console.error("Failed to delete child", error);
-        setNotification({ message: 'فشل حذف الطفل. يرجى المحاولة مرة أخرى.', type: 'error' });
-      }
+      setChildren(prev => prev.filter(child => child.id !== id));
+      setNotification({ message: 'تم حذف الطفل بنجاح.', type: 'success' });
     }
   };
 
@@ -331,10 +316,8 @@ const ClassDetails: React.FC = () => {
                 </div>
             </div>
              <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
-                <button onClick={() => setIsSettingsOpen(false)} className="btn btn-secondary" disabled={isSaving}>إلغاء</button>
-                <button onClick={handleSaveClassSettings} className="btn btn-primary" disabled={isSaving}>
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                </button>
+                <button onClick={() => setIsSettingsOpen(false)} className="btn btn-secondary">إلغاء</button>
+                <button onClick={handleSaveClassSettings} className="btn btn-primary">حفظ التغييرات</button>
             </div>
         </div>
        )}

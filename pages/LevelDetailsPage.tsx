@@ -3,7 +3,6 @@ import * as ReactRouterDOM from 'react-router-dom';
 import type { AppState, Class as ClassType, Child, EducationLevel } from '../types';
 import { UsersIcon, UserIcon, ArrowLeftIcon, BookOpenIcon, ChevronDownIcon, PlusIcon, EditIcon, TrashIcon, IdIcon } from '../components/Icons';
 import Notification from '../components/Notification';
-import { api } from '../services/api';
 
 
 interface OutletContextType {
@@ -20,7 +19,7 @@ const StatItem: React.FC<{label: string, value: string | number}> = ({ label, va
 
 const LevelDetailsPage: React.FC = () => {
   const { appState } = ReactRouterDOM.useOutletContext<OutletContextType>();
-  const { levels, classes, children } = appState;
+  const { levels, classes, children, setChildren } = appState;
   const { levelId } = ReactRouterDOM.useParams<{ levelId: string }>();
   const [searchParams] = ReactRouterDOM.useSearchParams();
   const division = searchParams.get('division');
@@ -77,15 +76,10 @@ const LevelDetailsPage: React.FC = () => {
         return children.filter(c => c.class_id === mainClassId);
     }, [children, mainClassId]);
 
-    const handleDeleteChild = async (id: string) => {
+    const handleDeleteChild = (id: string) => {
         if (window.confirm('هل أنت متأكد من رغبتك في حذف بيانات هذا الشاب/الطفل؟')) {
-            try {
-                await api.deleteChild(id);
-                setNotification({ message: 'تم الحذف بنجاح.', type: 'success' });
-            } catch (error) {
-                console.error("Failed to delete child", error);
-                setNotification({ message: 'فشل حذف الطفل.', type: 'error' });
-            }
+          setChildren(prev => prev.filter(child => child.id !== id));
+          setNotification({ message: 'تم الحذف بنجاح.', type: 'success' });
         }
     };
 
