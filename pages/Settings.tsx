@@ -1,6 +1,4 @@
-
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { Settings, AppState } from '../types';
 import { 
@@ -8,6 +6,7 @@ import {
 } from '../components/Icons';
 import Notification from '../components/Notification';
 import { GoogleGenAI } from "@google/genai";
+import { api } from '../services/api';
 
 
 interface OutletContextType {
@@ -82,15 +81,14 @@ const GeneralSettings: React.FC<{appState: AppState, showNotification: (msg: str
     const { settings, setSettings, language, setLanguage } = appState;
 
     const handleToggleChange = (field: keyof Pick<Settings, 'enableSounds' | 'enableVibrations' | 'enablePopups' | 'darkMode'>) => {
-        setSettings(prev => {
-            const updatedSettings = {...prev, [field]: !prev[field]};
+        const updatedSettings = {...settings, [field]: !settings[field]};
+        api.updateSettings(updatedSettings).then(() => {
             showNotification('تم حفظ الإعدادات تلقائياً.');
-            return updatedSettings;
         });
     };
 
     const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setLanguage(e.target.value);
+        setLanguage(e.target.value); // Optimistic update
         showNotification('تم تغيير اللغة بنجاح.');
     };
 

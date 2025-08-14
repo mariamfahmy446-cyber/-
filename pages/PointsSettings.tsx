@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { AppState } from '../types';
@@ -6,6 +5,7 @@ import type { PointsSettings, EducationLevel, Class } from '../types';
 import { AwardIcon, ArrowLeftIcon } from '../components/Icons';
 import Notification from '../components/Notification';
 import { INITIAL_POINTS_SETTINGS } from '../constants';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -13,13 +13,15 @@ interface OutletContextType {
 
 const PointsSettingsPage: React.FC = () => {
   const { appState } = useOutletContext<OutletContextType>();
-  const { pointsSettings, setPointsSettings, levels, classes } = appState;
+  const { pointsSettings } = appState;
+  const { levels, classes } = appState;
   const navigate = useNavigate();
 
   const [selectedLevelId, setSelectedLevelId] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [localSettings, setLocalSettings] = useState<PointsSettings | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info';} | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleBack = () => {
     if (window.history.state?.idx > 0) {
@@ -54,10 +56,18 @@ const PointsSettingsPage: React.FC = () => {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
     if (localSettings && selectedClassId) {
-        setPointsSettings(prev => ({ ...prev, [selectedClassId]: localSettings }));
-        setNotification({ message: 'تم حفظ التغييرات بنجاح!', type: 'success' });
+        setIsSaving(true);
+        try {
+            await api.updatePointsSettings(selectedClassId, localSettings);
+            setNotification({ message: 'تم حفظ التغييرات بنجاح!', type: 'success' });
+        } catch (error) {
+            setNotification({ message: 'فشل حفظ الإعدادات.', type: 'error' });
+        } finally {
+            setIsSaving(false);
+        }
     } else {
         setNotification({ message: 'يرجى اختيار فصل أولاً.', type: 'error' });
     }
@@ -131,8 +141,9 @@ const PointsSettingsPage: React.FC = () => {
                 <button
                     onClick={handleSave}
                     className="btn btn-primary"
+                    disabled={isSaving}
                 >
-                    حفظ التغييرات
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                 </button>
             </div>
         </div>

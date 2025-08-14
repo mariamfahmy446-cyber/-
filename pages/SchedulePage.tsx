@@ -1,5 +1,3 @@
-
-
 import React, { useMemo } from 'react';
 import { useOutletContext, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AppState, Class } from '../types';
@@ -23,31 +21,11 @@ const SchedulePage: React.FC = () => {
   }, [selectedLevelId, levels]);
   
   const specialLevels = ['level-nursery', 'level-university', 'level-graduates'];
-  const isPrepOrSecondary = useMemo(() => ['level-preparatory', 'level-secondary'].includes(selectedLevel?.id || ''), [selectedLevel]);
 
   const groupedClasses = useMemo(() => {
     if (!selectedLevel) return {};
 
     const levelClasses = classes.filter(c => c.level_id === selectedLevel.id);
-    
-    if (isPrepOrSecondary) {
-        const groups: Record<string, Class[]> = { 'بنين': [], 'بنات': [] };
-        levelClasses.forEach(cls => {
-            if (cls.name.includes('بنين')) {
-                groups['بنين'].push(cls);
-            } else if (cls.name.includes('بنات')) {
-                groups['بنات'].push(cls);
-            }
-        });
-        
-        const gradeOrder = selectedLevel.id === 'level-preparatory' 
-          ? ['اولى اعدادى', 'ثانية اعدادى', 'ثالثة اعدادى']
-          : ['اولى ثانوى', 'ثانية ثانوى', 'ثالثة ثانوى'];
-        
-        Object.values(groups).forEach(group => group.sort((a, b) => gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade)));
-
-        return groups;
-    }
     
     const groups = levelClasses.reduce((acc: Record<string, Class[]>, cls) => {
       const grade = cls.grade || 'بدون صف';
@@ -59,7 +37,7 @@ const SchedulePage: React.FC = () => {
     }, {});
 
     // Sort boys before girls within each grade group for consistent ordering.
-    (Object.values(groups) as Class[][]).forEach(group => {
+    Object.values(groups).forEach(group => {
       group.sort((a, b) => {
         const aIsBoys = a.name.includes('بنين');
         const bIsBoys = b.name.includes('بنين');
@@ -72,14 +50,10 @@ const SchedulePage: React.FC = () => {
     });
 
     return groups;
-  }, [selectedLevel, classes, isPrepOrSecondary]);
+  }, [selectedLevel, classes]);
 
   const gradeOrder = useMemo(() => {
     if (!selectedLevel) return [];
-    
-    if (isPrepOrSecondary) {
-        return ['بنين', 'بنات'].filter(group => groupedClasses[group]?.length > 0);
-    }
     
     const isPrimaryStage = selectedLevel.name === 'المرحلة الابتدائية';
     const primaryGradeOrder = ['الصف الاول', 'الصف الثانى', 'الصف الثالث', 'الصف الرابع', 'الصف الخامس', 'الصف السادس'];
@@ -102,7 +76,7 @@ const SchedulePage: React.FC = () => {
     }
 
     return groupKeys.sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [groupedClasses, selectedLevel, isPrepOrSecondary]);
+  }, [groupedClasses, selectedLevel]);
 
   const isPrimaryStage = selectedLevel?.name === 'المرحلة الابتدائية';
 
@@ -184,25 +158,58 @@ const SchedulePage: React.FC = () => {
             </button>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-md space-y-6">
-            {gradeOrder.map(groupName => (
-                <div key={groupName}>
-                    <h3 className="font-bold text-lg text-slate-800 mb-2 border-b pb-2">{groupName}</h3>
-                    <div className={`grid grid-cols-1 ${isPrimaryStage ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4`}>
-                        {groupedClasses[groupName].map(cls => (
-                            <Link 
-                                to={`/app/schedule/class/${cls.id}`} 
-                                key={cls.id}
-                                className="group flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-purple-50 border border-slate-200 hover:border-purple-300 transition-colors"
-                            >
-                                <div className="p-2 bg-slate-200 rounded-full text-slate-600 group-hover:bg-purple-200 group-hover:text-purple-700">
-                                    <UsersIcon className="w-5 h-5"/>
-                                </div>
-                                <div className="truncate">
-                                    <p className="font-semibold text-slate-700 truncate">{cls.name}</p>
-                                </div>
-                                <ArrowLeftIcon className="w-5 h-5 text-slate-400 ml-auto mr-0 group-hover:text-purple-600 shrink-0"/>
-                            </Link>
-                        ))}
+            {gradeOrder.map(grade => (
+                <div key={grade}>
+                    <h3 className="font-bold text-lg text-slate-800 mb-2 border-b pb-2">{grade}</h3>
+                    <div className={`grid grid-cols-1 ${isPrimaryStage ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-4`}>
+                        {isPrimaryStage ? (
+                            (() => {
+                                const boysClass = groupedClasses[grade].find(c => c.id.includes('boys'));
+                                const girlsClass = groupedClasses[grade].find(c => c.id.includes('girls'));
+                                
+                                const renderClassLink = (cls: Class | undefined, gender: 'بنين' | 'بنات') => {
+                                    if (!cls) return null;
+                                    return (
+                                        <Link 
+                                            to={`/app/schedule/class/${cls.id}`} 
+                                            key={cls.id}
+                                            className="group flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-purple-50 border border-slate-200 hover:border-purple-300 transition-colors"
+                                        >
+                                            <div className="p-2 bg-slate-200 rounded-full text-slate-600 group-hover:bg-purple-200 group-hover:text-purple-700">
+                                                <UsersIcon className="w-5 h-5"/>
+                                            </div>
+                                            <div className="truncate">
+                                                <p className="font-semibold text-slate-700 truncate text-sm">{`${grade} ${gender}`}</p>
+                                            </div>
+                                            <ArrowLeftIcon className="w-5 h-5 text-slate-400 ml-auto mr-0 group-hover:text-purple-600 shrink-0"/>
+                                        </Link>
+                                    );
+                                };
+
+                                return (
+                                    <>
+                                        {renderClassLink(boysClass, 'بنين')}
+                                        {renderClassLink(girlsClass, 'بنات')}
+                                    </>
+                                );
+                            })()
+                        ) : (
+                            groupedClasses[grade].map(cls => (
+                                <Link 
+                                    to={`/app/schedule/class/${cls.id}`} 
+                                    key={cls.id}
+                                    className="group flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-purple-50 border border-slate-200 hover:border-purple-300 transition-colors"
+                                >
+                                    <div className="p-2 bg-slate-200 rounded-full text-slate-600 group-hover:bg-purple-200 group-hover:text-purple-700">
+                                        <UsersIcon className="w-5 h-5"/>
+                                    </div>
+                                    <div className="truncate">
+                                        <p className={`font-semibold text-slate-700 truncate ${isPrimaryStage ? 'text-sm' : ''}`}>{cls.name}</p>
+                                    </div>
+                                    <ArrowLeftIcon className="w-5 h-5 text-slate-400 ml-auto mr-0 group-hover:text-purple-600 shrink-0"/>
+                                </Link>
+                            ))
+                        )}
                     </div>
                 </div>
             ))}

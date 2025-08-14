@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import type { AppState } from '../types';
@@ -51,7 +50,7 @@ const PointsDetails: React.FC = () => {
 
         if (childAttendance) {
             setPoints(childAttendance.points);
-            setTotalPoints((Object.values(childAttendance.points) as number[]).reduce((sum, p) => sum + p, 0));
+            setTotalPoints(Object.values(childAttendance.points).reduce((sum, p) => sum + (p as number), 0));
         } else {
              // If no record exists, maybe redirect or show an error. For now, let's init with 0.
              const defaultPoints: PointsBreakdown = { classAttendance: 0, prayerAttendance: 0, psalmRecitation: 0, scarf: 0, behavior: 0 };

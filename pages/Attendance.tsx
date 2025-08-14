@@ -138,7 +138,7 @@ const Attendance: React.FC = () => {
                             {availableClasses.length === 0 && selectedLevelId ? 'لا توجد فصول تطابق هذا الاختيار' : '-- اختر الفصل --'}
                         </option>
                         {availableClasses.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
+                            <option key={c.id} value={c.id}>{c.grade} - {c.name}</option>
                         ))}
                     </select>
                 </div>

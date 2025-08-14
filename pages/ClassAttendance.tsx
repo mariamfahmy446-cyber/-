@@ -5,6 +5,7 @@ import type { Child, AttendanceRecord, PointsBreakdown, PointsSettings, Notifica
 import { SearchIcon, UserIcon, ArrowLeftIcon, HistoryIcon, PlusIcon, MinusIcon, CheckIcon, XIcon, ClipboardCheckIcon } from '../components/Icons';
 import Notification from '../components/Notification';
 import { INITIAL_POINTS_SETTINGS } from '../constants';
+import { api } from '../services/api';
 
 interface OutletContextType {
   appState: AppState;
@@ -56,6 +57,7 @@ const ClassAttendance: React.FC = () => {
   const [isExistingRecord, setIsExistingRecord] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleBack = () => {
     if (window.history.state?.idx > 0) {
@@ -161,8 +163,9 @@ const ClassAttendance: React.FC = () => {
     });
   };
   
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!classId) return;
+    setIsSaving(true);
     const recordId = `${classId}-${selectedDate}`;
     
     const newRecord: AttendanceRecord = {
@@ -172,53 +175,51 @@ const ClassAttendance: React.FC = () => {
       attendanceData: attendance
     };
 
-    let message: string;
-    if (isExistingRecord) {
-      setAttendanceHistory(prev => prev.map(rec => rec.id === recordId ? newRecord : rec));
-      message = 'تم تحديث سجل الحضور بنجاح!';
-    } else {
-      setAttendanceHistory(prev => [...prev, newRecord]);
-      setIsExistingRecord(true);
-      message = 'تم حفظ سجل الحضور بنجاح!';
-    }
-    setNotification({ message, type: 'success' });
+    try {
+        await api.saveAttendanceRecord(newRecord);
+        setIsExistingRecord(true);
+        const message = isExistingRecord ? 'تم تحديث سجل الحضور بنجاح!' : 'تم حفظ سجل الحضور بنجاح!';
+        setNotification({ message, type: 'success' });
 
-    // --- NEW NOTIFICATION LOGIC ---
-    const activeClassForNotif = classes.find(c => c.id === classId);
-    if (!activeClassForNotif) return;
+        // --- NEW NOTIFICATION LOGIC ---
+        const activeClassForNotif = classes.find(c => c.id === classId);
+        if (!activeClassForNotif) return;
 
-    const levelId = activeClassForNotif.level_id;
+        const levelId = activeClassForNotif.level_id;
 
-    // Find Level Secretaries for this level
-    const levelSecretaries = users.filter(user => 
-      user.roles.includes('level_secretary') && 
-      user.levelIds?.includes(levelId)
-    );
+        const levelSecretaries = users.filter(user => 
+          user.roles.includes('level_secretary') && 
+          user.levelIds?.includes(levelId)
+        );
 
-    // Find Site Manager (General Secretary with specific national ID)
-    const siteManager = users.find(user => 
-      user.roles.includes('general_secretary') &&
-      user.nationalId === '29908241301363'
-    );
+        const siteManager = users.find(user => 
+          user.roles.includes('general_secretary') &&
+          user.nationalId === '29908241301363'
+        );
 
-    const targetUsers = [...levelSecretaries];
-    if (siteManager && !targetUsers.some(u => u.id === siteManager.id)) {
-      targetUsers.push(siteManager);
-    }
-    
-    // Create notifications
-    const newNotifications: NotificationItem[] = targetUsers.map(user => ({
-        id: Date.now() + Math.random(),
-        text: `تم تسجيل حضور فصل "${activeClassForNotif.name}" بتاريخ ${new Date(selectedDate).toLocaleDateString('ar-EG', { timeZone: 'UTC' })}.`,
-        time: 'الآن',
-        read: false,
-        icon: ClipboardCheckIcon,
-        targetUserId: user.id
-    }));
-    
-    // Add to global state
-    if (newNotifications.length > 0) {
-        setNotifications(prev => [...newNotifications, ...prev]);
+        const targetUsers = [...levelSecretaries];
+        if (siteManager && !targetUsers.some(u => u.id === siteManager.id)) {
+          targetUsers.push(siteManager);
+        }
+        
+        const newNotifications: NotificationItem[] = targetUsers.map(user => ({
+            id: Date.now() + Math.random(),
+            text: `تم تسجيل حضور فصل "${activeClassForNotif.name}" بتاريخ ${new Date(selectedDate).toLocaleDateString('ar-EG', { timeZone: 'UTC' })}.`,
+            time: 'الآن',
+            read: false,
+            icon: ClipboardCheckIcon,
+            targetUserId: user.id
+        }));
+        
+        if (newNotifications.length > 0) {
+            setNotifications(prev => [...newNotifications, ...prev]);
+        }
+
+    } catch (error) {
+        console.error("Failed to save attendance", error);
+        setNotification({ message: 'فشل حفظ سجل الحضور.', type: 'error' });
+    } finally {
+        setIsSaving(false);
     }
   };
   
@@ -397,6 +398,7 @@ const ClassAttendance: React.FC = () => {
                 <button
                     onClick={() => navigate('/app/attendance-history')}
                     className="btn btn-secondary"
+                    disabled={isSaving}
                 >
                     <HistoryIcon className="w-5 h-5" />
                     <span>سجل الحضور السابق</span>
@@ -404,8 +406,9 @@ const ClassAttendance: React.FC = () => {
                 <button
                     onClick={handleSave}
                     className="btn btn-primary"
+                    disabled={isSaving}
                 >
-                    {isExistingRecord ? 'تحديث سجل اليوم' : 'حفظ سجل اليوم'}
+                    {isSaving ? 'جاري الحفظ...' : isExistingRecord ? 'تحديث سجل اليوم' : 'حفظ سجل اليوم'}
                 </button>
             </div>
         </div>
